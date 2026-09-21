@@ -1,33 +1,36 @@
 /**
  * view.js — what the screen is showing.
  *
- * Two independent choices:
- *   - which folder is open (or Unsorted) — shared by every tab, and
- *     remembered across launches;
- *   - which tab is up — not remembered, so the app always opens on the list.
- *
- * Archived is a tab like the others, except that it ignores the open folder
- * entirely: archived words collect in one place wherever they came from.
+ * Three independent choices:
+ *   - which folder is open (or Unsorted) — shared by every tab
+ *     and remembered across launches;
+ *   - which words of it the list shows, All or Archived — also remembered;
+ *   - which tab is up, List or Quiz — not remembered, so the app always
+ *     opens on the list.
  */
 
-import { STORAGE_KEYS, UNSORTED_LABEL } from './config.js';
+import { FILTERS, FILTER_ARCHIVED, STORAGE_KEYS, UNSORTED_LABEL } from './config.js';
 import { readJson, writeJson } from './storage.js';
 import {
-  getFolders, getWordsInFolder, findFolderByName, countUnsorted, getArchivedWords,
+  getFolders, getWordsInFolder, getArchivedInFolder, findFolderByName, countUnsorted,
 } from './store.js';
 
 export const UNSORTED = 'unsorted';
 export const FOLDER = 'folder';
 
-/** The tab whose scope is every archived word rather than one folder. */
-export const ARCHIVED = 'archived';
-
 const listeners = new Set();
 
-/** { kind: 'unsorted' } | { kind: 'folder', name } | null */
+function isFilter(value) {
+  return FILTERS.some((entry) => entry.value === value);
+}
+
+let filter = readJson(STORAGE_KEYS.filter, 'all');
+if (!isFilter(filter)) filter = 'all';
+
+/** { kind: 'all' } | { kind: 'unsorted' } | { kind: 'folder', name } | null */
 let selection = readJson(STORAGE_KEYS.folder, null);
 
-/** 'list', 'cards', 'quiz' or 'archived'. */
+/** 'list', 'cards' or 'quiz'. */
 let tab = 'list';
 
 export function subscribeView(listener) {
@@ -76,24 +79,22 @@ export function selectionLabel() {
 }
 
 /**
- * The words the current tab is about: everything archived, or everything
- * live in the open folder.
+ * The open folder's live words — the ones on the list under All, and the only
+ * ones the quiz ever asks about. Archived words are in the folder still; they
+ * are simply not in circulation.
  */
 export function wordsInScope() {
-  if (tab === ARCHIVED) return getArchivedWords();
-  return folderWords();
+  return getWordsInFolder(folderKey());
 }
 
-/**
- * The open folder's live words, whichever tab is up.
- *
- * The quiz asks about a folder, not about whatever screen happens to be
- * showing, so its count has to keep meaning the same thing while the
- * Archived tab is open.
- */
-export function folderWords() {
+/** The open folder's archived words, for the Archived tab. */
+export function archivedInScope() {
+  return getArchivedInFolder(folderKey());
+}
+
+function folderKey() {
   const current = getSelection();
-  return getWordsInFolder(current.kind === UNSORTED ? null : current.name);
+  return current.kind === UNSORTED ? null : current.name;
 }
 
 /** The folder a word added right now belongs to; blank means unsorted. */
@@ -102,16 +103,30 @@ export function folderForNewWord() {
   return current.kind === FOLDER ? current.name : '';
 }
 
-/* --- List / Cards / Quiz / Archived --------------------------------------- */
+/* --- All / Archived ------------------------------------------------------ */
 
-/** Which tab is up. */
-export function getTab() {
-  return tab;
+/** 'all' or 'archived'. */
+export function getFilter() {
+  return filter;
 }
 
-/** Archived shows one collection, so the folder in the header does not apply. */
-export function isArchivedTab() {
-  return tab === ARCHIVED;
+export function setFilter(next) {
+  if (!isFilter(next) || next === filter) return;
+  filter = next;
+  writeJson(STORAGE_KEYS.filter, filter);
+  emit();
+}
+
+/** True while the list is showing archived words rather than live ones. */
+export function isArchivedFilter() {
+  return filter === FILTER_ARCHIVED;
+}
+
+/* --- List / Cards / Quiz -------------------------------------------------- */
+
+/** Which of the three tabs is up. */
+export function getTab() {
+  return tab;
 }
 
 export function setTab(next) {

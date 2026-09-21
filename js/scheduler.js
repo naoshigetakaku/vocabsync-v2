@@ -124,7 +124,13 @@ export function schedule(word, correct, tick, random = Math.random) {
   // A labelled word comes round at a fraction of its gap. Only after a right
   // answer: a miss already puts it a few questions away, and scaling that
   // down again would ask it almost immediately.
-  if (labelled && correct) gap = Math.min(LABEL_MAX_GAP, gap * LABEL_FACTOR);
+  //
+  // Never below the learning step, though. Anki's intervals start small, so
+  // scaling one of those down lands on 1 — the very next question — which
+  // reads as the app not having heard the right answer at all.
+  if (labelled && correct) {
+    gap = Math.max(LEARNING_GAP, Math.min(LABEL_MAX_GAP, gap * LABEL_FACTOR));
+  }
   gap = Math.max(1, Math.min(MAX_GAP, Math.round(gap * (0.95 + random() * 0.1))));
 
   // This answer is itself a tick, so "due in 3" means three other answers
@@ -145,6 +151,15 @@ export function schedule(word, correct, tick, random = Math.random) {
     },
     labelAdded: labelled && !hadLabel,
     labelCleared: hadLabel && !labelled,
+  };
+}
+
+/** What each button would do, for the hints under them. No randomness. */
+export function preview(word, tick) {
+  const half = () => 0.5;
+  return {
+    missed: schedule(word, false, tick, half),
+    correct: schedule(word, true, tick, half),
   };
 }
 

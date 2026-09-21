@@ -6,7 +6,7 @@
  */
 
 import { api, ApiError, isRetryable, getKnownBackendVersion } from './api.js';
-import { STORAGE_KEYS, STATUS_UNKNOWN, ARCHIVED_ON } from './config.js';
+import { STORAGE_KEYS, ARCHIVED_ON } from './config.js';
 import { readJson, writeJson, remove } from './storage.js';
 
 let words = readJson(STORAGE_KEYS.words, []);
@@ -86,33 +86,24 @@ export function isArchived(word) {
  * unsorted ones: no folder at all, or a folder that has since been deleted.
  */
 export function getWordsInFolder(name) {
-  const live = words.filter((word) => !isArchived(word));
-  if (name === null) {
-    const names = new Set(folders.map((folder) => folder.name));
-    return live.filter((word) => !word.folder || !names.has(word.folder));
-  }
-  return live.filter((word) => word.folder === name);
+  return everythingIn(name).filter((word) => !isArchived(word));
 }
 
-/** Every archived word, whatever folder it came from. */
-export function getArchivedWords() {
-  return words.filter(isArchived);
+/** The archived words of one folder. */
+export function getArchivedInFolder(name) {
+  return everythingIn(name).filter(isArchived);
+}
+
+function everythingIn(name) {
+  if (name === null) {
+    const names = new Set(folders.map((folder) => folder.name));
+    return words.filter((word) => !word.folder || !names.has(word.folder));
+  }
+  return words.filter((word) => word.folder === name);
 }
 
 export function countUnsorted() {
   return getWordsInFolder(null).length;
-}
-
-/**
- * The folder an archived word goes back to. Its own folder, unless that
- * folder has been deleted since — then the name it was archived from, which
- * the folder menu will offer to recreate, and failing that unsorted.
- */
-export function homeFolderOf(word) {
-  const names = new Set(folders.map((folder) => folder.name));
-  if (word.folder && names.has(word.folder)) return word.folder;
-  if (word.archivedFrom && names.has(word.archivedFrom)) return word.archivedFrom;
-  return '';
 }
 
 /* --- Persistence ---------------------------------------------------------- */
@@ -427,24 +418,13 @@ export async function updateWord(changes) {
 }
 
 /**
- * Puts the "don't know this" label on, or takes it off, by hand. Either way
- * the count towards clearing it starts again.
- */
-export function setLabel(id, on) {
-  const word = getWord(id);
-  if (!word) return Promise.resolve(null);
-  const status = on ? STATUS_UNKNOWN : '';
-  if ((word.status || '') === status) return Promise.resolve(word);
-  return updateWord({ id, status, labelStreak: 0 });
-}
-
-/**
  * Archives a word, or puts it back.
  *
  * The folder column is never touched, so restoring needs no bookkeeping at
- * all: the word simply reappears where it always was. archivedFrom is written
- * alongside as a record of that folder, for the case where it is deleted
- * while the word is away.
+ * all: the word simply reappears where it always was, with its quiz schedule
+ * and its hidden label intact. archivedFrom is written alongside as a record
+ * of that folder, for the one case the folder column cannot cover — the
+ * folder being deleted while the word is away.
  */
 export function setArchived(id, on) {
   const word = getWord(id);
@@ -455,7 +435,6 @@ export function setArchived(id, on) {
 
   const changes = { id, archived };
   if (on) changes.archivedFrom = word.folder || '';
-  else if (!homeFolderOf(word)) changes.folder = '';
   return updateWord(changes);
 }
 

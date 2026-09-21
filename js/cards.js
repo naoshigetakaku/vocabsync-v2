@@ -19,7 +19,7 @@
  */
 
 import { visibleWords, paintEmpty } from './list.js';
-import { selectionLabel } from './view.js';
+import { isArchivedFilter, selectionLabel } from './view.js';
 import { wordLinks } from './links.js';
 import { DEFAULT_COLOR } from './config.js';
 
@@ -157,8 +157,8 @@ function paintSide(card, showBack) {
   front.setAttribute('aria-hidden', showBack ? 'true' : 'false');
   back.setAttribute('aria-hidden', showBack ? 'false' : 'true');
   // Links on the hidden face must not be reachable by Tab either.
-  front.querySelector('a').tabIndex = showBack ? -1 : 0;
-  back.querySelector('a').tabIndex = showBack ? 0 : -1;
+  front.querySelectorAll('a').forEach((link) => { link.tabIndex = showBack ? -1 : 0; });
+  back.querySelectorAll('a').forEach((link) => { link.tabIndex = showBack ? 0 : -1; });
 }
 
 function flip(card) {
@@ -192,7 +192,7 @@ function prime(event) {
 }
 
 function signatureOf(words) {
-  return selectionLabel() + '\n' + words
+  return selectionLabel() + '\n' + String(isArchivedFilter()) + '\n' + words
     .map((word) => [
       word.id, word.word, word.pos, word.definition, word.note, word.color,
     ].join('\t'))
@@ -202,6 +202,7 @@ function signatureOf(words) {
 export function renderCards() {
   const words = visibleWords();
   const byId = new Map(words.map((word) => [word.id, word]));
+  cardsElement.dataset.filter = isArchivedFilter() ? 'archived' : 'all';
 
   // Keep the dealt order, but drop anything that left and append anything
   // new rather than reshuffling under the reader's thumb.

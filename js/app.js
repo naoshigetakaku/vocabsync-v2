@@ -4,12 +4,11 @@
 
 import { hasCredentials } from './auth.js';
 import { isRetryable, isBackendStale, getBackendVersion } from './api.js';
+import { subscribe, refresh, reset, getWord, setArchived, isArchived, flush } from './store.js';
+import { FILTERS } from './config.js';
 import {
-  subscribe, refresh, reset, getWord, setArchived, isArchived, flush,
-} from './store.js';
-import {
-  subscribeView, getTab, setTab, setSelection, selectionLabel, isSelected,
-  isArchivedTab, FOLDER,
+  subscribeView, getFilter, setFilter, getTab, setTab, setSelection,
+  selectionLabel, isSelected, FOLDER,
 } from './view.js';
 import {
   initList, render as renderList, highlightNew, animateNextReflow, hideEmpty,
@@ -21,8 +20,6 @@ import { initQuiz, renderQuizHome, readyCount, isQuizRunning } from './quiz.js';
 import { initDetail, openDetail, syncDetail } from './detail.js';
 import { initForm, openCreateForm, openEditForm } from './form.js';
 import { initSetup, openSetup } from './setup.js';
-import { initSettings, openSettings } from './settings.js';
-import { renderFooter } from './footer.js';
 import { initInstallHint } from './install-hint.js';
 import { initSort, cycleSort, getSortLabel } from './sort.js';
 import { initPicker } from './picker.js';
@@ -30,27 +27,24 @@ import { initConfirm, confirmArchive } from './confirm.js';
 import { enableRowSwipe, LEFT } from './swipe-row.js';
 import { toast } from './toast.js';
 
+const addButton = document.getElementById('add-button');
 const settingsButton = document.getElementById('settings-button');
-const folderButton = document.getElementById('folder-button');
+const sortLabel = document.getElementById('tab-list-label');
 const folderName = document.getElementById('folder-name');
 const wordListElement = document.getElementById('word-list');
 const cardsElement = document.getElementById('cards');
 const quizHomeElement = document.getElementById('quiz-home');
 const mainElement = document.querySelector('.app-main');
+const filterElement = document.getElementById('filter');
 const tabbarElement = document.getElementById('tabbar');
-
-/**
- * Both live inside the tab bar, and so are replaced whenever its order
- * changes. Looked up again by paintFooter rather than held from the start.
- */
-let sortLabel = null;
-let badgeElement = null;
+const badgeElement = document.getElementById('quiz-badge');
 
 const VIEW_ANIMATION_MS = 420;
 
 let syncing = false;
 let staleWarningShown = false;
 let renamingOpenFolder = false;
+let previousFilter = getFilter();
 let previousTab = getTab();
 let previousFolder = selectionLabel();
 
@@ -64,7 +58,7 @@ function warnIfBackendStale() {
   staleWarningShown = true;
   // Versions belong to a deployment, not to the script, so the likeliest
   // cause after an update is this device still using an older URL.
-  toast('This device is connected to an older Apps Script (v' + getBackendVersion() + '). See Settings.');
+  toast('This device is connected to an older Apps Script (v' + getBackendVersion() + '). See Connection.');
 }
 
 /**
@@ -95,39 +89,40 @@ async function sync(quiet) {
 
 /* --- Screen --------------------------------------------------------------- */
 
-/**
- * Draws the tab bar and finds the two elements inside it that the rest of the
- * screen writes to. Everything else in there is reached by delegation, so
- * rebuilding the bar never strands a listener on a node that has gone.
- */
-function paintFooter() {
-  renderFooter(tabbarElement);
-  sortLabel = document.getElementById('tab-list-label');
-  badgeElement = document.getElementById('quiz-badge');
+function filterIndex(value) {
+  return Math.max(0, FILTERS.findIndex((entry) => entry.value === value));
 }
 
 function paintHeader() {
-  const archived = isArchivedTab();
+  const tab = getTab();
+  const quiz = tab === 'quiz';
 
-  // Archived gathers every folder, so the folder picker has nothing to pick.
-  folderName.textContent = archived ? 'Archived' : selectionLabel();
-  folderButton.disabled = archived;
-  folderButton.classList.toggle('is-fixed', archived);
+  folderName.textContent = selectionLabel();
+  filterElement.hidden = quiz;
 
   // The List tab's label is the order the list is in; see js/sort.js.
-  if (sortLabel) sortLabel.textContent = getSortLabel();
+  sortLabel.textContent = getSortLabel();
+
+  const filter = getFilter();
+  filterElement.dataset.active = filter;
+  filterElement.style.setProperty('--filter-index', String(filterIndex(filter)));
+  filterElement.querySelectorAll('.filter__tab').forEach((tab) => {
+    tab.setAttribute('aria-selected', tab.dataset.filter === filter ? 'true' : 'false');
+  });
 
   tabbarElement.querySelectorAll('.tabbar__tab').forEach((tab) => {
-    const active = Boolean(tab.dataset.tab) && tab.dataset.tab === getTab();
+    const active = tab.dataset.tab === getTab();
     tab.classList.toggle('is-active', active);
     tab.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
 
-  if (badgeElement) {
-    const ready = readyCount();
-    badgeElement.textContent = String(ready);
-    badgeElement.hidden = ready === 0;
-  }
+  const ready = readyCount();
+  badgeElement.textContent = String(ready);
+  badgeElement.hidden = ready === 0;
+
+  // Only the list has somewhere to put a new word, and on the other tabs the
+  // button would sit on top of a card.
+  addButton.hidden = tab !== 'list';
 }
 
 /** Slides the arriving content in from the side it came from. */
@@ -142,16 +137,22 @@ function animateView(element, kind) {
 
 function renderCurrent() {
   const tab = getTab();
+  const filter = getFilter();
   const folder = selectionLabel();
-  // Archived borrows the list; they are different screens all the same.
-  const listing = tab === 'list' || tab === 'archived';
 
+  // A different tab or folder is a different screen: start it at the top,
+  // and enter it from the side of the control that was tapped.
   let entrance = null;
-  if (folder !== previousFolder || tab !== previousTab) entrance = 'fade';
+  if (folder !== previousFolder || tab !== previousTab) {
+    entrance = 'fade';
+  } else if (filter !== previousFilter) {
+    entrance = filterIndex(filter) > filterIndex(previousFilter) ? 'forward' : 'back';
+  }
+  previousFilter = filter;
   previousTab = tab;
   previousFolder = folder;
 
-  wordListElement.hidden = !listing;
+  wordListElement.hidden = tab !== 'list';
   cardsElement.hidden = tab !== 'cards';
   quizHomeElement.hidden = tab !== 'quiz';
   // The deck does its own snap scrolling, so the page must stop scrolling.
@@ -189,7 +190,7 @@ function allowsSwipe(id, direction) {
   return direction === LEFT ? !isArchived(word) : isArchived(word);
 }
 
-/** Either way the word leaves the list it was on, so the rows close up. */
+/** Either way the word leaves the tab it was on, so the rows close up. */
 function staysAfterSwipe() {
   return false;
 }
@@ -200,13 +201,14 @@ async function performSwipe(id, direction) {
   if (!word) return;
 
   // Archiving takes a word off three screens at once, so it asks first.
-  // Restoring only undoes that, and asking twice reads as nagging.
+  // Restoring only undoes that.
   if (archiving && !(await confirmArchive(word))) {
     // Nothing changed, so nothing re-renders on its own; put the row back.
     renderCurrent();
     return;
   }
 
+  // The rows after it glide up into the gap it leaves.
   animateNextReflow();
 
   try {
@@ -262,9 +264,6 @@ function wireUi() {
   subscribe(renderCurrent);
   subscribeView(renderCurrent);
 
-  // The bar has to exist before anything looks inside it.
-  paintFooter();
-
   // Shared dialogs first: the views below open them.
   initPicker();
   initConfirm();
@@ -301,37 +300,31 @@ function wireUi() {
       sync(false);
     },
   });
-  initSettings({
-    onChange: () => {
-      paintFooter();
-      paintHeader();
-    },
-  });
   initSort(renderCurrent);
   initInstallHint();
 
-  settingsButton.addEventListener('click', openSettings);
+  addButton.addEventListener('click', openCreateForm);
+  settingsButton.addEventListener('click', () => openSetup({ manual: true }));
+
+  filterElement.addEventListener('click', (event) => {
+    const tab = event.target.closest('.filter__tab');
+    if (tab) setFilter(tab.dataset.filter);
+  });
 
   // Tapping the tab you are already on does the thing that tab is for again:
   // the list steps to the next order, the deck deals a fresh hand.
   tabbarElement.addEventListener('click', (event) => {
-    const button = event.target.closest('.tabbar__tab');
-    if (!button) return;
+    const tab = event.target.closest('.tabbar__tab');
+    if (!tab) return;
     closeFolderMenu();
 
-    // The add slot is an action, not a destination.
-    if (button.dataset.slot === 'add') {
-      openCreateForm();
-      return;
-    }
-
-    const wanted = button.dataset.tab;
+    const wanted = tab.dataset.tab;
     const already = getTab() === wanted;
 
     if (wanted === 'cards') {
       shuffleCards();
       if (already) renderCurrent();
-    } else if (wanted === 'list' && already && sortLabel) {
+    } else if (wanted === 'list' && already) {
       cycleSort();
       sortLabel.classList.remove('is-changed');
       // Restart the swap even on a quick second tap.
@@ -342,12 +335,9 @@ function wireUi() {
     setTab(wanted);
   });
 
-  // Left archives a word, right puts it back. Only the list has rows.
+  // Left puts a word aside, right brings it back. Only the list has rows.
   enableRowSwipe(wordListElement, {
-    canSwipe: () => {
-      const tab = getTab();
-      return (tab === 'list' || tab === 'archived') && !isFolderMenuOpen();
-    },
+    canSwipe: () => getTab() === 'list' && !isFolderMenuOpen(),
     allows: allowsSwipe,
     stays: staysAfterSwipe,
     perform: performSwipe,

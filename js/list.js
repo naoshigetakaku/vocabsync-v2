@@ -2,15 +2,13 @@
  * list.js — the home screen: the words in the open folder.
  *
  * Deliberately shows the word and nothing else; every other field lives behind
- * the detail dialog. The one exception is the Archived tab, where a row also
- * names the folder the word will go back to, since those rows come from every
- * folder at once.
+ * the detail dialog. Under All these are the folder's live words; under
+ * Archived, the ones put aside.
  */
 
 import { sortWords } from './sort.js';
-import { wordsInScope, selectionLabel, isArchivedTab } from './view.js';
-import { homeFolderOf } from './store.js';
-import { DEFAULT_COLOR, UNSORTED_LABEL } from './config.js';
+import { wordsInScope, archivedInScope, isArchivedFilter, selectionLabel } from './view.js';
+import { DEFAULT_COLOR } from './config.js';
 
 const listElement = document.getElementById('word-list');
 const emptyElement = document.getElementById('empty-state');
@@ -95,21 +93,13 @@ function buildRow(word) {
   text.textContent = word.word;
   button.appendChild(text);
 
-  // Archived rows come from every folder, so each says where it goes back to.
-  if (isArchivedTab()) {
-    const home = document.createElement('span');
-    home.className = 'word-row__home';
-    home.textContent = homeFolderOf(word) || UNSORTED_LABEL;
-    button.appendChild(home);
-  }
-
   item.appendChild(button);
   return item;
 }
 
-/** The words of the current tab, in the current sort order. */
+/** The open folder's words under the current tab, in the current sort order. */
 export function visibleWords() {
-  return sortWords(wordsInScope());
+  return sortWords(isArchivedFilter() ? archivedInScope() : wordsInScope());
 }
 
 /** True in the wide browser layout, where the list is a grid of cells. */
@@ -168,22 +158,15 @@ function playReflow(before) {
 
 /** Everything a row shows, so an identical render can be recognised. */
 function signatureOf(words) {
-  return scopeLabel() + '\n' + words
-    .map((word) => [
-      word.id, word.word, word.color, word.folder || '', word.pending ? 1 : 0,
-    ].join('\t'))
+  return selectionLabel() + '\n' + String(isArchivedFilter()) + '\n' + words
+    .map((word) => [word.id, word.word, word.color, word.pending ? 1 : 0].join('\t'))
     .join('\n');
-}
-
-/** What the current scope is called, for signatures and empty messages. */
-function scopeLabel() {
-  return isArchivedTab() ? 'Archived' : selectionLabel();
 }
 
 /** Shared with the card deck, which shows the same message. */
 export function paintEmpty(count) {
-  if (isArchivedTab()) {
-    emptyTitle.textContent = 'Nothing archived';
+  if (isArchivedFilter()) {
+    emptyTitle.textContent = 'Nothing archived in ' + selectionLabel();
     emptyHint.textContent = 'Swipe a word left to put it here.';
   } else {
     emptyTitle.textContent = 'No words in ' + selectionLabel();
@@ -199,7 +182,7 @@ export function hideEmpty() {
 
 export function render() {
   const words = visibleWords();
-  listElement.dataset.tab = isArchivedTab() ? 'archived' : 'list';
+  listElement.dataset.filter = isArchivedFilter() ? 'archived' : 'all';
 
   // The store notifies on every change anywhere — the server confirming a
   // word that has just left this tab, a background sync that found nothing

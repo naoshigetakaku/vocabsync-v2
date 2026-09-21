@@ -2,26 +2,19 @@
  * quiz.js — the Quiz tab: what is waiting, and the session itself.
  *
  * One card at a time, front first: the word alone, then a tap turns it over
- * to everything else. Missed and Got it are there from the moment the card
- * arrives, not only once it has been turned — you can know an answer without
- * needing to see it, and waiting for the turn made that a chore.
- *
- * With the timer on, a card unanswered after QUIZ_TIMER_MS counts as missed.
- * The clock does not stop when the card is turned: seeing the answer is not
- * the same as having known it. It stops only when a button is pressed, when
- * the session ends, or when the app goes into the background — that last one
- * so a phone call does not silently cost you a word.
+ * to everything else, then Missed or Got it. The turn is the same pure CSS
+ * transform between two faces the card mode used, so nothing is built or
+ * measured at the moment of the tap.
  *
  * What to ask and when lives in scheduler.js; this file is the screen.
  */
 
-import { DEFAULT_COLOR, QUIZ_FLUSH_EVERY, QUIZ_TIMER_MS } from './config.js';
+import { DEFAULT_COLOR, QUIZ_FLUSH_EVERY } from './config.js';
 import { getWords, getWord, recordAnswer, flush, isLocalOnly } from './store.js';
 import { isRetryable } from './api.js';
-import { folderWords } from './view.js';
-import { currentTick, pickNext, schedule, summarise, isNew } from './scheduler.js';
+import { wordsInScope } from './view.js';
+import { currentTick, pickNext, preview, schedule, summarise, isNew } from './scheduler.js';
 import { wordLinks } from './links.js';
-import { isTimerOn } from './settings.js';
 import { toast } from './toast.js';
 
 const homeElement = document.getElementById('quiz-home');
@@ -46,12 +39,12 @@ const quizElement = document.getElementById('quiz');
 const stageElement = document.getElementById('quiz-stage');
 const actionsElement = document.getElementById('quiz-actions');
 const flipHint = document.getElementById('quiz-flip-hint');
-const timerElement = document.getElementById('quiz-timer');
-const timerFill = document.getElementById('quiz-timer-fill');
 const answeredElement = document.getElementById('quiz-answered');
 const endButton = document.getElementById('quiz-end');
 const missedButton = document.getElementById('grade-missed');
+const missedHint = document.getElementById('grade-missed-hint');
 const gotButton = document.getElementById('grade-got');
+const gotHint = document.getElementById('grade-got-hint');
 const summaryElement = document.getElementById('quiz-summary');
 const summaryAnswered = document.getElementById('summary-answered');
 const summaryLabels = document.getElementById('summary-labels');
@@ -66,7 +59,7 @@ let onChange = () => {};
 
 /** Words this quiz may ask: the open folder, minus anything not saved yet. */
 function pool() {
-  return folderWords().filter((word) => !isLocalOnly(word));
+  return wordsInScope().filter((word) => !isLocalOnly(word));
 }
 
 function tickNow() {
@@ -80,8 +73,8 @@ export function renderQuizHome() {
   const counts = summarise(words, tickNow());
 
   readyElement.textContent = String(counts.ready);
-  // The "don't know this" label still drives the schedule, but it is no
-  // longer something the reader is told about; see js/config.js.
+  // The "don't know this" label still drives the schedule, but it is not
+  // something the reader is told about; see js/config.js.
   unknownElement.hidden = true;
   newElement.textContent = counts.fresh ? counts.fresh + ' new' : '';
   newElement.hidden = !counts.fresh;
@@ -184,38 +177,11 @@ function currentCard() {
   return stageElement.querySelector('.flashcard');
 }
 
-/* --- The clock ------------------------------------------------------------ */
-
-/**
- * One timeout, and one CSS animation that shows it running down.
- *
- * Every path out of a card clears the timeout before anything else happens,
- * so a card can never be graded twice — by the reader and then by the clock
- * a moment later.
- */
-function stopTimer() {
-  if (session && session.timer) {
-    clearTimeout(session.timer);
-    session.timer = null;
-  }
-  timerElement.hidden = true;
-  timerFill.classList.remove('is-running');
-}
-
-function startTimer() {
-  stopTimer();
-  if (!session || !isTimerOn()) return;
-
-  timerElement.hidden = false;
-  // Restart the animation even when one card follows another immediately.
-  void timerFill.offsetWidth;
-  timerFill.classList.add('is-running');
-
-  session.timer = setTimeout(() => {
-    if (!session) return;
-    session.timer = null;
-    grade(false, true);
-  }, QUIZ_TIMER_MS);
+/** Wording under each button: where this answer would put the word. */
+function paintHints(word) {
+  const outlook = preview(word, tickNow());
+  missedHint.textContent = 'again in ' + outlook.missed.fields.gap;
+  gotHint.textContent = 'in ' + outlook.correct.fields.gap;
 }
 
 function showFace(card, showBack) {
@@ -224,17 +190,12 @@ function showFace(card, showBack) {
   const [front, back] = card.querySelectorAll('.flashcard__face');
   front.setAttribute('aria-hidden', showBack ? 'true' : 'false');
   back.setAttribute('aria-hidden', showBack ? 'false' : 'true');
-  face(front).forEach((link) => { link.tabIndex = showBack ? -1 : 0; });
-  face(back).forEach((link) => { link.tabIndex = showBack ? 0 : -1; });
+  front.querySelectorAll('a').forEach((link) => { link.tabIndex = showBack ? -1 : 0; });
+  back.querySelectorAll('a').forEach((link) => { link.tabIndex = showBack ? 0 : -1; });
 
-  // Both buttons are there from the start; only the nudge to turn the card
-  // goes away once it has been turned.
+  // Grading only makes sense once the answer has been seen.
+  actionsElement.hidden = !showBack;
   flipHint.hidden = showBack;
-}
-
-/** The links on one face, which must not be reachable by Tab when hidden. */
-function face(element) {
-  return Array.from(element.querySelectorAll('a'));
 }
 
 function flip() {
@@ -267,8 +228,7 @@ function showCard(word, direction) {
       stageElement.replaceChildren(card);
       card.classList.add('is-entering');
       showFace(card, false);
-      // The clock starts with the card the reader can actually see.
-      startTimer();
+      paintHints(word);
     }, SWAP_MS);
     return;
   }
@@ -276,7 +236,7 @@ function showCard(word, direction) {
   stageElement.replaceChildren(card);
   card.classList.add('is-entering');
   showFace(card, false);
-  startTimer();
+  paintHints(word);
 }
 
 /* --- The session ---------------------------------------------------------- */
@@ -295,13 +255,8 @@ function paintCounter() {
   answeredElement.textContent = session.answered === 1 ? '1 answered' : session.answered + ' answered';
 }
 
-/**
- * Records one answer. `timedOut` marks the ones the clock gave, which are
- * counted separately so the summary can say how many went that way.
- */
-async function grade(correct, timedOut) {
-  if (!session || !session.currentId) return;
-  stopTimer();
+async function grade(correct) {
+  if (!session || !session.currentId || !session.flipped) return;
 
   const word = getWord(session.currentId);
   if (!word) {
@@ -315,7 +270,6 @@ async function grade(correct, timedOut) {
   session.answered += 1;
   if (correct) session.correct += 1;
   else session.missed += 1;
-  if (timedOut) session.timedOut += 1;
   session.lastId = word.id;
   paintCounter();
 
@@ -349,13 +303,11 @@ function finish() {
   summaryAnswered.textContent = answered + (answered === 1 ? ' answer' : ' answers')
     + ' · ' + percent + '% right';
 
-  const parts = [];
-  if (session.missed) parts.push(session.missed + ' missed');
-  if (session.timedOut) parts.push(session.timedOut + ' out of time');
-  summaryLabels.textContent = parts.join(' · ');
-  summaryLabels.hidden = !parts.length;
+  summaryLabels.textContent = session.missed
+    ? session.missed + (session.missed === 1 ? ' to see again' : ' to see again')
+    : '';
+  summaryLabels.hidden = !session.missed;
 
-  stopTimer();
   stageElement.hidden = true;
   actionsElement.hidden = true;
   flipHint.hidden = true;
@@ -380,14 +332,11 @@ export function startQuiz() {
     answered: 0,
     correct: 0,
     missed: 0,
-    timedOut: 0,
     flipped: false,
-    timer: null,
   };
 
   summaryElement.hidden = true;
   stageElement.hidden = false;
-  actionsElement.hidden = false;
   endButton.hidden = false;
   quizElement.hidden = false;
   document.body.classList.add('is-quizzing');
@@ -397,7 +346,6 @@ export function startQuiz() {
 
 export function closeQuiz() {
   if (!session) return;
-  stopTimer();
   session = null;
   quizElement.hidden = true;
   stageElement.replaceChildren();
@@ -409,9 +357,6 @@ export function closeQuiz() {
 
 export function initQuiz(handlers) {
   onChange = handlers.onChange || (() => {});
-
-  // The bar and the timeout read the same number, so they cannot drift.
-  timerFill.style.setProperty('--quiz-timer-ms', QUIZ_TIMER_MS + 'ms');
 
   startButton.addEventListener('click', startQuiz);
   endButton.addEventListener('click', finish);
@@ -430,12 +375,6 @@ export function initQuiz(handlers) {
     flip();
   });
 
-  missedButton.addEventListener('click', () => grade(false, false));
-  gotButton.addEventListener('click', () => grade(true, false));
-
-  // A card left running while the app is in the background would come back
-  // already expired, or expire unseen. Stop the clock and leave the card up.
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') stopTimer();
-  });
+  missedButton.addEventListener('click', () => grade(false));
+  gotButton.addEventListener('click', () => grade(true));
 }

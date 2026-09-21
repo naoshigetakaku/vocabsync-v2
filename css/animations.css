@@ -31,6 +31,11 @@
   to   { transform: translateY(0);   opacity: 1; }
 }
 
+@keyframes fab-in {
+  from { transform: scale(0.4) rotate(-45deg); opacity: 0; }
+  to   { transform: scale(1)   rotate(0);      opacity: 1; }
+}
+
 @keyframes toast-in {
   from { transform: translate(-50%, 12px); opacity: 0; }
   to   { transform: translate(-50%, 0);    opacity: 1; }
@@ -175,9 +180,11 @@
   to   { transform: translateY(0);    opacity: 1; }
 }
 
-.tabbar__label.is-changed { animation: label-swap var(--dur-mid) var(--ease-spring) both; }
+.tabbar__tab span.is-changed { animation: label-swap var(--dur-mid) var(--ease-spring) both; }
 
 /* --- Chrome --------------------------------------------------------------- */
+
+.fab { animation: fab-in var(--dur-slow) var(--ease-spring) both; }
 
 .empty:not([hidden]) { animation: fade-in var(--dur-slow) var(--ease-out) both; }
 

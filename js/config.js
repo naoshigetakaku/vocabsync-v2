@@ -52,8 +52,7 @@ export const STORAGE_KEYS = {
   outbox: 'vocabsync.outbox.v1',
   installHint: 'vocabsync.install-hint.v1',
   sort: 'vocabsync.sort.v1',
-  footer: 'vocabsync.footer.v1',
-  quizTimer: 'vocabsync.quiz-timer.v1',
+  filter: 'vocabsync.filter.v2',
   folder: 'vocabsync.folder.v1',
   folders: 'vocabsync.folders.v2',
   backendVersion: 'vocabsync.backend-version.v1',
@@ -63,9 +62,11 @@ export const STORAGE_KEYS = {
  * The "don't know this" label, as stored in the sheet's status column. A
  * word without it has a blank status.
  *
- * Nothing on screen shows this any more. It survives as the input to the
- * scheduler: a missed word is labelled, comes round at a fraction of its
- * usual gap, and the label clears after LABEL_CLEAR_STREAK right answers.
+ * Nothing on screen shows this. It survives as the input to the scheduler: a
+ * missed word is labelled, a labelled word comes round at a fraction of its
+ * usual gap, and LABEL_CLEAR_STREAK right answers clear it. Keeping it out of
+ * sight is deliberate — it is a detail of how often a word is asked, not a
+ * verdict on the reader.
  */
 export const STATUS_UNKNOWN = 'unknown';
 
@@ -78,15 +79,13 @@ export const STATUS_UNKNOWN = 'unknown';
  */
 export const ARCHIVED_ON = '1';
 
-/**
- * The footer, left to right, and what each slot does. The order is the
- * user's to change; see js/footer.js. 'add' is an action rather than a
- * screen — it opens the new-word form and leaves the tab alone.
- */
-export const FOOTER_SLOTS = ['list', 'cards', 'add', 'quiz', 'archived'];
+/** The tabs on the list. 'all' is a view, never anything stored. */
+export const FILTER_ARCHIVED = 'archived';
 
-/** How long a quiz card may go unanswered before it counts as missed. */
-export const QUIZ_TIMER_MS = 7000;
+export const FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: FILTER_ARCHIVED, label: 'Archived' },
+];
 
 /** The menu entry for words that are in no folder at all. */
 export const UNSORTED_LABEL = 'Unsorted';

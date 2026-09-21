@@ -1,10 +1,9 @@
 /**
  * sort.js — ordering of the word list.
  *
- * The List tab's own label is the order, and tapping that tab again steps to
- * the next one; Settings shows the same four as a row of buttons for picking
- * one outright. This module owns the order and the wording; the tab bar and
- * the settings sheet just show what they are told.
+ * There is no sort screen: the List tab's own label is the order, and tapping
+ * that tab again steps to the next one. This module owns the order and the
+ * wording; the tab bar just shows what it is told.
  */
 
 import { STORAGE_KEYS } from './config.js';
@@ -67,19 +66,6 @@ export function cycleSort() {
   writeJson(STORAGE_KEYS.sort, current);
   onChange();
   return getSortLabel();
-}
-
-/** The four orders, for the settings sheet. */
-export function getSortModes() {
-  return MODES.map((mode) => ({ value: mode.value, label: mode.label }));
-}
-
-/** Picks one outright, rather than stepping to the next. */
-export function setSortMode(value) {
-  if (!isKnown(value) || value === current) return;
-  current = value;
-  writeJson(STORAGE_KEYS.sort, current);
-  onChange();
 }
 
 export function initSort(handler) {

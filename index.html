@@ -77,6 +77,13 @@
       </div>
       </div>
 
+      <!-- Every live word in the folder, or the ones put aside. The pill
+           behind the selected tab slides between them. -->
+      <div class="filter" id="filter" role="tablist" aria-label="Show">
+        <span class="filter__indicator" aria-hidden="true"></span>
+        <button class="filter__tab" type="button" role="tab" data-filter="all">All</button>
+        <button class="filter__tab filter__tab--archived" type="button" role="tab" data-filter="archived">Archived</button>
+      </div>
     </div>
   </header>
 
@@ -129,20 +136,20 @@
       <span class="quiz__count" id="quiz-answered">0 answered</span>
     </div>
 
-    <!-- Runs down while a card is up; see js/quiz.js. Hidden when the
-         timer is switched off in Settings. -->
-    <div class="quiz__timer" id="quiz-timer" aria-hidden="true" hidden>
-      <span class="quiz__timer-fill" id="quiz-timer-fill"></span>
-    </div>
-
     <div class="quiz__stage" id="quiz-stage"></div>
 
     <div class="quiz__foot" id="quiz-foot">
       <p class="quiz__hint" id="quiz-flip-hint">Tap the card to see the answer</p>
 
       <div class="quiz__actions" id="quiz-actions">
-        <button class="grade grade--missed" id="grade-missed" type="button">Missed</button>
-        <button class="grade grade--got" id="grade-got" type="button">Got it</button>
+        <button class="grade grade--missed" id="grade-missed" type="button">
+          <span class="grade__label">Missed</span>
+          <span class="grade__hint" id="grade-missed-hint"></span>
+        </button>
+        <button class="grade grade--got" id="grade-got" type="button">
+          <span class="grade__label">Got it</span>
+          <span class="grade__hint" id="grade-got-hint"></span>
+        </button>
       </div>
     </div>
 
@@ -155,8 +162,34 @@
     </div>
   </section>
 
-  <!-- Built by js/footer.js: five slots, in the order Settings holds. -->
-  <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+  <button class="fab" id="add-button" type="button" aria-label="Add a word">
+    <svg class="fab__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  </button>
+
+  <nav class="tabbar" id="tabbar" aria-label="Sections">
+    <button class="tabbar__tab is-active" id="tab-list" type="button" data-tab="list" aria-pressed="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 7h16M4 12h16M4 17h10" />
+      </svg>
+      <span id="tab-list-label">A–Z</span>
+    </button>
+    <button class="tabbar__tab" id="tab-cards" type="button" data-tab="cards" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="5" y="4" width="14" height="16" rx="3" />
+        <path d="M9 10h6M9 14h4" />
+      </svg>
+      <span>Cards</span>
+    </button>
+    <button class="tabbar__tab" id="tab-quiz" type="button" data-tab="quiz" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M8.6 8.4a3.5 3.5 0 1 1 4.6 3.3c-1 .4-1.6 1.2-1.6 2.3v.6M12 18.6h.01" />
+      </svg>
+      <span>Quiz</span>
+      <span class="tabbar__badge" id="quiz-badge" hidden></span>
+    </button>
+  </nav>
 
   <!-- Detail view: every field of a single word. -->
   <dialog class="sheet sheet--tall" id="detail-dialog" aria-labelledby="detail-word">
@@ -168,13 +201,29 @@
       <div class="detail__content">
         <div class="detail__tags">
           <p class="detail__pos" id="detail-pos"></p>
-          <!-- Archives the word, or puts it back where it came from. -->
+          <!-- Puts the word aside, or brings it back. -->
           <button class="detail__archive" id="detail-archive" type="button" aria-pressed="false">
             <span id="detail-archive-text"></span>
           </button>
         </div>
 
-        <h2 class="detail__word" id="detail-word"></h2>
+        <div class="detail__headline">
+          <h2 class="detail__word" id="detail-word"></h2>
+          <div class="wordlinks">
+            <a class="youglish" id="detail-youglish" target="_blank" rel="noopener noreferrer">
+              <span class="youglish__label">youglish</span>
+              <svg class="youglish__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </a>
+            <a class="youglish" id="detail-duckduckgo" target="_blank" rel="noopener noreferrer">
+              <span class="youglish__label">duckduckgo</span>
+              <svg class="youglish__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </a>
+          </div>
+        </div>
 
         <section class="detail__block" id="detail-definition-block">
           <h3 class="detail__heading">Definition</h3>
@@ -185,21 +234,6 @@
           <h3 class="detail__heading">Note</h3>
           <p class="detail__text" id="detail-note"></p>
         </section>
-
-        <div class="wordlinks detail__links">
-          <a class="wordlink" id="detail-youglish" target="_blank" rel="noopener noreferrer">
-            <span>youglish</span>
-            <svg class="wordlink__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </a>
-          <a class="wordlink" id="detail-duckduckgo" target="_blank" rel="noopener noreferrer">
-            <span>duckduckgo</span>
-            <svg class="wordlink__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </a>
-        </div>
       </div>
     </div>
 
@@ -370,50 +404,6 @@
         <button class="button" id="setup-submit" type="submit">Connect</button>
       </div>
     </form>
-  </dialog>
-
-  <!-- Settings: the footer's order, the list's order, the quiz timer, and
-       the connection. See js/settings.js. -->
-  <dialog class="sheet sheet--tall" id="settings-dialog" aria-labelledby="settings-title">
-    <div class="sheet__grip" aria-hidden="true"><span class="sheet__handle"></span></div>
-
-    <div class="sheet__body">
-      <div class="sheet__head">
-        <h2 class="sheet__title" id="settings-title">Settings</h2>
-        <button class="header-action" id="settings-close" type="button" aria-label="Close settings">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      </div>
-
-      <section class="settings__section">
-        <h3 class="settings__label">Footer</h3>
-        <ul class="settings__list" id="settings-footer"></ul>
-      </section>
-
-      <section class="settings__section">
-        <h3 class="settings__label">List order</h3>
-        <div class="settings__choices" id="settings-sort"></div>
-      </section>
-
-      <section class="settings__section">
-        <h3 class="settings__label">Quiz timer</h3>
-        <div class="settings__toggle-row">
-          <span class="settings__note">Seven seconds a card. Running out counts as missed.</span>
-          <button class="settings__toggle" id="settings-timer" type="button"
-                  role="switch" aria-checked="true" aria-label="Quiz timer">
-            <span class="settings__knob" aria-hidden="true"></span>
-          </button>
-        </div>
-      </section>
-
-      <section class="settings__section">
-        <h3 class="settings__label">Connection</h3>
-        <p class="settings__note" id="settings-connection"></p>
-        <button class="button settings__wide" id="settings-connect" type="button">Open connection</button>
-      </section>
-    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

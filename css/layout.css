@@ -64,11 +64,6 @@
 
 .app-header__title[aria-expanded="true"] .app-header__chevron { transform: rotate(180deg); }
 
-/* Archived is not a folder, so there is nothing to pick and no chevron to
-   promise one. The title keeps its size and weight either way. */
-.app-header__title.is-fixed .app-header__chevron { display: none; }
-.app-header__title.is-fixed { cursor: default; }
-
 /* Right-hand cluster of header controls. */
 .app-header__tools {
   flex: none;
@@ -105,6 +100,60 @@
   stroke-width: 1.9;
 }
 
+/* --- Tabs: All / Unknown -------------------------------------------
+   One pill slides behind the selected tab and takes that tab's colour. It is
+   moved with a transform, not by changing its position, so the slide stays on
+   the compositor. */
+
+.filter {
+  --filter-index: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 11px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--segment-bg);
+  box-shadow: inset 0 1px 0 var(--gloss-edge);
+}
+
+.filter__indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 2);
+  border-radius: 999px;
+  background: var(--segment-all);
+  box-shadow: var(--shadow-segment);
+  transform: translateX(calc(var(--filter-index) * 100%));
+  transition: transform 300ms var(--ease-out),
+              background-color 300ms var(--ease-out);
+}
+
+.filter[data-active="archived"] .filter__indicator { background: var(--archived-tint); box-shadow: none; }
+
+.filter__tab {
+  position: relative;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: color 300ms var(--ease-out);
+}
+
+.filter__tab[aria-selected="true"] { color: var(--text); }
+
+/* Archived is grey wherever it appears, selected or not. */
+.filter__tab--archived,
+.filter__tab--archived[aria-selected="true"] { color: var(--archived); }
+
 /* The only scrolling region on the home screen. */
 .app-main {
   flex: 1 1 auto;
@@ -127,7 +176,7 @@
 .tabbar {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   border-top: 1px solid var(--line);
   background: var(--bg);
   padding-bottom: var(--safe-bottom);
@@ -153,46 +202,6 @@
 .tabbar__tab svg { width: 22px; height: 22px; stroke-width: 1.8; }
 .tabbar__tab.is-active { color: var(--text); }
 .tabbar__tab:active { transform: scale(0.96); }
-
-/* The label is the slot's name, except on List where it is the sort order. */
-.tabbar__label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-/* New word: an action rather than a destination, so it never takes the
-   active state and is drawn as a disc instead of an outline. */
-.tabbar__tab--add {
-  justify-content: center;
-  padding-top: 5px;
-}
-
-.tabbar__add-ring {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--on-accent);
-  /* The glow: a soft ring just outside the disc, and light thrown below it. */
-  box-shadow:
-    0 0 0 4px var(--add-halo),
-    0 4px 14px var(--add-glow),
-    inset 0 1px 0 var(--add-rim);
-}
-
-.tabbar__tab--add svg {
-  width: 23px;
-  height: 23px;
-  stroke-width: 2.2;
-  /* The glyph itself is lit, which is what reads as a highlight at this size. */
-  filter: drop-shadow(0 0 5px var(--add-spark));
-}
-
-.tabbar__tab--add:active .tabbar__add-ring { transform: scale(0.94); }
 
 /* How many words the quiz has waiting in the open folder. */
 .tabbar__badge {
@@ -222,9 +231,17 @@
 
 .scrim.is-open { opacity: 1; }
 
+/* Out of reach while the folder menu is open: it floats above the scrim. */
+body.is-menu-open .fab {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
 /* The quiz takes the whole screen: no header, no tab bar, one card. */
 body.is-quizzing .app-header,
-body.is-quizzing .tabbar { display: none; }
+body.is-quizzing .tabbar,
+body.is-quizzing .fab { display: none; }
 
 /* Held still while a dialog is open; see js/scroll-lock.js. */
 .app-main.is-locked { overflow: hidden; }
@@ -270,8 +287,8 @@ body.is-quizzing .tabbar { display: none; }
 
 .word-item__action--archive {
   justify-content: flex-end;
-  color: var(--unknown);
-  background: var(--unknown-tint);
+  color: var(--archived);
+  background: var(--archived-tint);
 }
 
 /* Only the label for the direction of travel ever shows. */
@@ -352,17 +369,6 @@ body.is-quizzing .tabbar { display: none; }
   overflow-wrap: anywhere;
 }
 
-/* On the Archived tab only: where the word goes back to. The rows there
-   come from every folder at once, so the word alone is not enough. */
-.word-row__home {
-  flex: none;
-  margin-left: auto;
-  padding-left: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-faint);
-}
-
 /* A word queued for upload is dimmed until the server confirms it. */
 .word-row--pending { color: var(--text-dim); }
 
@@ -401,6 +407,7 @@ body.is-quizzing .tabbar { display: none; }
     margin-inline: auto;
   }
   .app-header__title { font-size: 30px; }
+  .filter { max-width: 380px; }
 }
 
 /* --- Browser on a wide screen ----------------------------------------------

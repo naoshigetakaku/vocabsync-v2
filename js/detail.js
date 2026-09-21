@@ -2,10 +2,8 @@
  * detail.js — the dialog that shows every field of one word.
  */
 
-import {
-  getWord, deleteWord, isPending, setArchived, isArchived, homeFolderOf,
-} from './store.js';
-import { DEFAULT_COLOR, UNSORTED_LABEL } from './config.js';
+import { getWord, deleteWord, isPending, setArchived, isArchived } from './store.js';
+import { DEFAULT_COLOR } from './config.js';
 import { openDialog, closeDialog, wireDismiss } from './dialog.js';
 import { askConfirm, confirmArchive } from './confirm.js';
 import { pointLinks } from './links.js';
@@ -32,13 +30,11 @@ function fill(word) {
   posElement.textContent = word.pos || '';
   posElement.hidden = !word.pos;
 
-  // The same control both ways round; restoring says where the word goes.
+  // The same control both ways round: put the word aside, or bring it back.
   const archived = isArchived(word);
   archiveButton.dataset.archived = archived ? '1' : '';
   archiveButton.setAttribute('aria-pressed', archived ? 'true' : 'false');
-  archiveText.textContent = archived
-    ? 'Restore to ' + (homeFolderOf(word) || UNSORTED_LABEL)
-    : 'Archive';
+  archiveText.textContent = archived ? 'Archived' : 'Archive';
 
   wordElement.textContent = word.word;
   wordElement.dataset.color = word.color || DEFAULT_COLOR;
@@ -85,8 +81,8 @@ export function initDetail(handlers) {
     if (!word) return;
 
     const archived = isArchived(word);
-    // Archiving takes a word off every screen, so it asks first. Putting one
-    // back only undoes that, and asking twice for the same decision is noise.
+    // Archiving takes a word off three screens, so it asks first. Restoring
+    // only undoes that, and asking twice for one decision reads as nagging.
     if (!archived && !(await confirmArchive(word))) return;
 
     try {
