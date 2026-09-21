@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
+     role="img" aria-label="VocabSync">
+  <title>VocabSync</title>
+  <!-- Solid ground so the mark reads on any wallpaper. -->
+  <rect width="512" height="512" rx="112" ry="112" fill="#000000"/>
+  <!-- A letterform over a writing rule: the whole idea of the app in two strokes. -->
+  <g fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M177 323 L256 138 L335 323"/>
+    <path d="M209 267 L304 267"/>
+    <path d="M163 374 L349 374"/>
+  </g>
+</svg>

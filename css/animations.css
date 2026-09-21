@@ -1,0 +1,204 @@
+/* ==========================================================================
+   animations.css — motion only. Every rule here is disabled wholesale by the
+   reduced-motion block at the bottom, so the app stays fully usable without it.
+   ========================================================================== */
+
+@keyframes sheet-in {
+  from { transform: translateY(14%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+@keyframes sheet-out {
+  from { transform: translateY(0);   opacity: 1; }
+  to   { transform: translateY(10%); opacity: 0; }
+}
+
+@keyframes card-in {
+  from { transform: translateY(10px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+@keyframes card-out {
+  from { transform: translateY(0)   scale(1);    opacity: 1; }
+  to   { transform: translateY(6px) scale(0.98); opacity: 0; }
+}
+
+@keyframes fade-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+@keyframes row-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+@keyframes toast-in {
+  from { transform: translate(-50%, 12px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translate(-50%, 0);    opacity: 1; }
+  to   { transform: translate(-50%, 10px); opacity: 0; }
+}
+
+@keyframes banner-in {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes alert-in {
+  from { transform: scale(0.9);  opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes alert-out {
+  from { transform: scale(1);    opacity: 1; }
+  to   { transform: scale(0.96); opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-5px); }
+  75%      { transform: translateX(5px); }
+}
+
+/* --- Dialogs -------------------------------------------------------------- */
+/* The classes are toggled by js/dialog.js around showModal()/close() so the
+   exit animation gets a chance to finish before the dialog is torn down. */
+
+.sheet.is-open    { animation: sheet-in  var(--dur-slow) var(--ease-spring) both; }
+.sheet.is-closing { animation: sheet-out var(--dur-mid)  var(--ease-out)    both; }
+
+.sheet.is-open::backdrop    { animation: fade-in  var(--dur-mid)  var(--ease-out) both; }
+.sheet.is-closing::backdrop { animation: fade-out var(--dur-mid)  var(--ease-out) both; }
+
+@media (min-width: 700px) {
+  .sheet.is-open    { animation: card-in  var(--dur-mid) var(--ease-spring) both; }
+  .sheet.is-closing { animation: card-out var(--dur-fast) var(--ease-out)   both; }
+}
+
+/* --- Moving between screens ------------------------------------------------ */
+
+@keyframes view-in-forward {
+  from { transform: translateX(16%);  opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes view-in-back {
+  from { transform: translateX(-16%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes view-in-fade {
+  from { transform: scale(0.985); opacity: 0; }
+  to   { transform: scale(1);     opacity: 1; }
+}
+
+/* A tab further right enters from the right, one further left from the
+   left; switching between list and cards simply fades. */
+.view-in-forward { animation: view-in-forward var(--dur-mid) var(--ease-out) both; }
+.view-in-back    { animation: view-in-back    var(--dur-mid) var(--ease-out) both; }
+.view-in-fade    { animation: view-in-fade    var(--dur-mid) var(--ease-out) both; }
+
+/* --- Swipe to dismiss ------------------------------------------------------ */
+/* A finished animation with fill-mode "both" keeps overriding transform, so
+   the drag has to cancel it outright. js/dialog.js drops .is-open once the
+   entrance animation ends, which keeps the two from fighting. */
+
+.sheet.is-grabbed {
+  animation: none;
+  transform: translateY(var(--drag-y, 0px));
+  will-change: transform;
+}
+
+.sheet.is-settling {
+  transition: transform var(--dur-mid) var(--ease-out);
+}
+
+/* --- Confirmation popup ---------------------------------------------------- */
+
+.alert.is-open    { animation: alert-in  var(--dur-mid)  var(--ease-spring) both; }
+.alert.is-closing { animation: alert-out var(--dur-fast) var(--ease-out)    both; }
+
+.alert.is-open::backdrop    { animation: fade-in  var(--dur-mid) var(--ease-out) both; }
+.alert.is-closing::backdrop { animation: fade-out var(--dur-mid) var(--ease-out) both; }
+
+/* --- Word list ------------------------------------------------------------ */
+/* Staggered only on the first paint after a full render. The delay comes from
+   nth-child rather than an inline custom property so the CSP can stay strict. */
+
+.word-list.is-entering .word-row { animation: row-in var(--dur-mid) var(--ease-out) both; }
+
+.word-list.is-entering li:nth-child(1)  .word-row { animation-delay: 0ms; }
+.word-list.is-entering li:nth-child(2)  .word-row { animation-delay: 22ms; }
+.word-list.is-entering li:nth-child(3)  .word-row { animation-delay: 44ms; }
+.word-list.is-entering li:nth-child(4)  .word-row { animation-delay: 66ms; }
+.word-list.is-entering li:nth-child(5)  .word-row { animation-delay: 88ms; }
+.word-list.is-entering li:nth-child(6)  .word-row { animation-delay: 110ms; }
+.word-list.is-entering li:nth-child(7)  .word-row { animation-delay: 132ms; }
+.word-list.is-entering li:nth-child(8)  .word-row { animation-delay: 154ms; }
+.word-list.is-entering li:nth-child(9)  .word-row { animation-delay: 176ms; }
+.word-list.is-entering li:nth-child(10) .word-row { animation-delay: 198ms; }
+.word-list.is-entering li:nth-child(11) .word-row { animation-delay: 220ms; }
+.word-list.is-entering li:nth-child(12) .word-row { animation-delay: 242ms; }
+/* Anything past the twelfth row is below the fold on every phone. */
+.word-list.is-entering li:nth-child(n+13) .word-row { animation-delay: 264ms; }
+
+/* A row that has just been created slides in on its own. */
+.word-row.is-new { animation: row-in var(--dur-mid) var(--ease-spring) both; }
+
+/* --- Quiz ----------------------------------------------------------------- */
+/* The answered card leaves to the left, the next arrives from the right.
+   No fill-mode: once each is over, the transform must be free again for the
+   card to turn. */
+
+@keyframes card-leave {
+  from { transform: translateX(0);      opacity: 1; }
+  to   { transform: translateX(-18px);  opacity: 0; }
+}
+
+@keyframes card-enter {
+  from { transform: translateX(18px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.flashcard.is-leaving  { animation: card-leave 170ms var(--ease-out); opacity: 0; }
+.flashcard.is-entering { animation: card-enter 200ms var(--ease-out); }
+
+/* The grading buttons appear with the answer. */
+.quiz__actions:not([hidden]) { animation: row-in var(--dur-mid) var(--ease-out) both; }
+
+/* The order on the List tab drops in when it changes, so the tap reads as a
+   change of state rather than a flicker. */
+@keyframes label-swap {
+  from { transform: translateY(-4px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.tabbar__label.is-changed { animation: label-swap var(--dur-mid) var(--ease-spring) both; }
+
+/* --- Chrome --------------------------------------------------------------- */
+
+.empty:not([hidden]) { animation: fade-in var(--dur-slow) var(--ease-out) both; }
+
+.toast:not([hidden])   { animation: toast-in  var(--dur-mid) var(--ease-spring) both; }
+.toast.is-leaving      { animation: toast-out var(--dur-fast) var(--ease-out)   both; }
+
+.banner:not([hidden]) { animation: banner-in var(--dur-slow) var(--ease-spring) both; }
+
+.form.is-invalid { animation: shake var(--dur-slow) var(--ease-out) both; }
+
+/* --- Reduced motion ------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  .sheet.is-open::backdrop,
+  .sheet.is-closing::backdrop {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

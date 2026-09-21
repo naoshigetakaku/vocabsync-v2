@@ -1,0 +1,292 @@
+/* ==========================================================================
+   theme.css — design tokens, light/dark palette, base element resets.
+   The chrome is greyscale; the accent is near-black in light mode and
+   near-white in dark mode. The only colours with meaning are green for known
+   and red for unknown, plus whatever colour a word has been given.
+   ========================================================================== */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --bg:            #ffffff;
+  --surface:       #ffffff;
+  --surface-raise: #ffffff;
+  --scrim:         rgba(0, 0, 0, 0.32);
+
+  /* Ink */
+  --text:      #0b0b0b;
+  --text-dim:  #6e6e6e;
+  --text-faint:#9a9a9a;
+
+  /* Lines */
+  --line:        #e6e6e6;
+  --line-strong: #d2d2d2;
+
+  /* Accent = the inverse of the surface */
+  --accent:     #0b0b0b;
+  --on-accent:  #ffffff;
+
+  /* Feedback */
+  --danger: #b00020;
+
+  /* Word colours. Vivid, but pitched to stay readable: darker on white,
+     lifted on charcoal. The key is stored, never the hex, so the same word
+     follows the device between light and dark. */
+  --word-default: currentColor;
+  --word-red:      #DC2626;
+  --word-orange:   #E05A0C;
+  --word-amber:    #C07A00;
+  --word-yellow:   #9E8500;
+  --word-lime:     #5A9B10;
+  --word-green:    #0E8A45;
+  --word-teal:     #0A8A80;
+  --word-cyan:     #0678A8;
+  --word-blue:     #1D5FD8;
+  --word-indigo:   #3B3BC9;
+  --word-violet:   #6D28D9;
+  --word-purple:   #9124B0;
+  --word-magenta:  #C01B84;
+  --word-pink:     #DE2963;
+  --word-grey:     #6B6B6B;
+
+  /* Gloss. Static gradients and inset hairlines only — no backdrop-filter,
+     which is what makes a glassy look expensive to paint. */
+  --gloss-edge:  rgba(255, 255, 255, 0.7);
+  --gloss-sheen: rgba(255, 255, 255, 0.55);
+
+  /* The "don't know this" label is red throughout; green is the colour of
+     clearing it. The solid colour is for text and marks, the tint for the
+     ground behind them — a tab, a swipe, a chip. */
+  --known:        #0E8A45;
+  --known-tint:   rgba(14, 138, 69, 0.13);
+  --unknown:      #D42A2A;
+  --unknown-tint: rgba(212, 42, 42, 0.11);
+
+  --on-badge:       #FFFFFF;
+
+  /* The new-word disc in the middle of the footer. The halo is a ring just
+     outside it, the glow the light it throws downward, and the spark the lift
+     on the glyph itself — which is what actually reads as a highlight at
+     22px. The rim is the hairline where the disc meets the bar. */
+  --add-halo:  rgba(11, 11, 11, 0.07);
+  --add-glow:  rgba(11, 11, 11, 0.30);
+  --add-spark: rgba(255, 255, 255, 0.85);
+  --add-rim:   rgba(255, 255, 255, 0.34);
+
+  --segment-bg:     #F0F0F0;
+  --segment-all:    #FFFFFF;
+  --shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-card:    0 10px 32px rgba(0, 0, 0, 0.08);
+
+  /* Elevation */
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.14);
+  --shadow-fab:   0 4px 16px rgba(0, 0, 0, 0.22);
+
+  /* Metrics */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --gap:       16px;
+  --page-pad:  20px;
+  /* Height of the tab bar without its safe-area padding. Everything that
+     floats above the bar is positioned from this. */
+  --tabbar-h:  53px;
+
+  /* Motion */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast:    140ms;
+  --dur-mid:     240ms;
+  --dur-slow:    320ms;
+
+  /* Safe areas — resolve to 0px outside of standalone iOS. */
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left, 0px);
+  --safe-right:  env(safe-area-inset-right, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Charcoal rather than pure black: rgb(32, 32, 32). */
+    --bg:            #202020;
+    --surface:       #282828;
+    --surface-raise: #2f2f2f;
+    --scrim:         rgba(0, 0, 0, 0.6);
+
+    --text:      #f0f0f0;
+    --text-dim:  #a3a3a3;
+    --text-faint:#787878;
+
+    --line:        #3a3a3a;
+    --line-strong: #4a4a4a;
+
+    --accent:    #f0f0f0;
+    --on-accent: #202020;
+
+    --danger: #e08a8a;
+
+    --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.55);
+    --shadow-fab:   0 4px 16px rgba(0, 0, 0, 0.45);
+
+    /* Word colours, lifted so they stay legible on charcoal. */
+    --word-red:      #FF8080;
+    --word-orange:   #FFA351;
+    --word-amber:    #F5C244;
+    --word-yellow:   #E6D84A;
+    --word-lime:     #AEE04F;
+    --word-green:    #4FD98B;
+    --word-teal:     #3FD6C8;
+    --word-cyan:     #54C8EE;
+    --word-blue:     #84A9FF;
+    --word-indigo:   #A0A2FF;
+    --word-violet:   #BC9BFF;
+    --word-purple:   #E29AF4;
+    --word-magenta:  #FF8CCB;
+    --word-pink:     #FF93B4;
+    --word-grey:     #A3A3A3;
+
+    --gloss-edge:  rgba(255, 255, 255, 0.065);
+    --gloss-sheen: rgba(255, 255, 255, 0.04);
+
+    --known:        #4FD98B;
+    --known-tint:   rgba(79, 217, 139, 0.16);
+    --unknown:      #FF8080;
+    --unknown-tint: rgba(255, 128, 128, 0.15);
+
+    --on-badge:       #202020;
+
+    /* The disc is near-white here, so it is the dark glyph that is lifted
+       and the halo that carries the light rather than the shadow. */
+    --add-halo:  rgba(255, 255, 255, 0.10);
+    --add-glow:  rgba(0, 0, 0, 0.45);
+    --add-spark: rgba(0, 0, 0, 0.35);
+    --add-rim:   rgba(255, 255, 255, 0.9);
+
+    --segment-bg:     #2A2A2A;
+    --segment-all:    #3D3D3D;
+    --shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-card:    0 10px 32px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* --- Base ---------------------------------------------------------------- */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  /* Prevent iOS from enlarging text when the device is rotated. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  /* The page itself never scrolls: the header and the add button stay put and
+     the list scrolls inside .app-main. This also removes the document-level
+     rubber-band effect in standalone mode. */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  /* Kill the grey flash on tap in iOS Safari. */
+  -webkit-tap-highlight-color: transparent;
+  /* Suppresses double-tap-to-zoom. Pinch zoom is governed by the viewport tag,
+     which iOS Safari ignores but the installed Home Screen app honours. */
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+h1, h2, h3, p { margin: 0; }
+
+/* Components below set an explicit display, which would otherwise beat the
+   user-agent rule for [hidden]. Keep the attribute authoritative. */
+[hidden] { display: none !important; }
+ul { margin: 0; padding: 0; list-style: none; }
+
+button, input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* 16px minimum on form controls — anything smaller makes iOS zoom on focus. */
+input, select, textarea { font-size: 16px; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+/* No tap highlight, no long-press selection or callout anywhere in the
+   chrome. Body text below opts back in, so a definition can still be copied.
+
+   iOS Safari paints its own grey wash on every tapped element; that is what
+   -webkit-tap-highlight-color turns off. It is an inherited property, but it
+   is set on each interactive element as well rather than relying on that,
+   because a dialog in the top layer is easy to reason about wrongly. */
+button,
+a,
+.word-row,
+.flashcard,
+.option,
+.swatch,
+.sheet__grip,
+.app-header {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.detail__text,
+.detail__word {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Only ever shown for keyboard navigation, never for a tap. The first rule
+   clears the user-agent ring that some engines still draw on a tapped button. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Word colours apply to the word itself and nowhere else: labels, the part of
+   speech badge and body text all keep the normal ink. */
+.word-row[data-color="red"], .detail__word[data-color="red"], .flashcard__word[data-color="red"], .flashcard__title[data-color="red"] { color: var(--word-red); }
+.word-row[data-color="orange"], .detail__word[data-color="orange"], .flashcard__word[data-color="orange"], .flashcard__title[data-color="orange"] { color: var(--word-orange); }
+.word-row[data-color="amber"], .detail__word[data-color="amber"], .flashcard__word[data-color="amber"], .flashcard__title[data-color="amber"] { color: var(--word-amber); }
+.word-row[data-color="yellow"], .detail__word[data-color="yellow"], .flashcard__word[data-color="yellow"], .flashcard__title[data-color="yellow"] { color: var(--word-yellow); }
+.word-row[data-color="lime"], .detail__word[data-color="lime"], .flashcard__word[data-color="lime"], .flashcard__title[data-color="lime"] { color: var(--word-lime); }
+.word-row[data-color="green"], .detail__word[data-color="green"], .flashcard__word[data-color="green"], .flashcard__title[data-color="green"] { color: var(--word-green); }
+.word-row[data-color="teal"], .detail__word[data-color="teal"], .flashcard__word[data-color="teal"], .flashcard__title[data-color="teal"] { color: var(--word-teal); }
+.word-row[data-color="cyan"], .detail__word[data-color="cyan"], .flashcard__word[data-color="cyan"], .flashcard__title[data-color="cyan"] { color: var(--word-cyan); }
+.word-row[data-color="blue"], .detail__word[data-color="blue"], .flashcard__word[data-color="blue"], .flashcard__title[data-color="blue"] { color: var(--word-blue); }
+.word-row[data-color="indigo"], .detail__word[data-color="indigo"], .flashcard__word[data-color="indigo"], .flashcard__title[data-color="indigo"] { color: var(--word-indigo); }
+.word-row[data-color="violet"], .detail__word[data-color="violet"], .flashcard__word[data-color="violet"], .flashcard__title[data-color="violet"] { color: var(--word-violet); }
+.word-row[data-color="purple"], .detail__word[data-color="purple"], .flashcard__word[data-color="purple"], .flashcard__title[data-color="purple"] { color: var(--word-purple); }
+.word-row[data-color="magenta"], .detail__word[data-color="magenta"], .flashcard__word[data-color="magenta"], .flashcard__title[data-color="magenta"] { color: var(--word-magenta); }
+.word-row[data-color="pink"], .detail__word[data-color="pink"], .flashcard__word[data-color="pink"], .flashcard__title[data-color="pink"] { color: var(--word-pink); }
+.word-row[data-color="grey"], .detail__word[data-color="grey"], .flashcard__word[data-color="grey"], .flashcard__title[data-color="grey"] { color: var(--word-grey); }
+
+/* Inline SVG icons are drawn as strokes so they inherit the text colour. */
+svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

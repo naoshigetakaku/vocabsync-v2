@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- maximum-scale/user-scalable hold in the installed Home Screen app; iOS
+       Safari ignores them by design and keeps pinch zoom available. -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'">
+
+  <title>VocabSync</title>
+  <meta name="description" content="A minimal vocabulary notebook synced through Google Sheets.">
+
+  <!-- Theme follows the device setting; no in-app toggle by design. -->
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#202020" media="(prefers-color-scheme: dark)">
+
+  <!-- iOS standalone web app -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VocabSync">
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/animations.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="app-header__anchor">
+      <div class="app-header__bar">
+        <!-- The folder that is open, and the way to change it. -->
+        <button class="app-header__title" id="folder-button" type="button" aria-expanded="false">
+          <span id="folder-name">Vocabulary</span>
+          <svg class="app-header__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+
+        <div class="app-header__tools">
+          <button class="header-action" id="settings-button" type="button" aria-label="Connection settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+              <circle cx="16" cy="7" r="2.4" />
+              <circle cx="8" cy="17" r="2.4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hangs off the bottom of the title bar and covers whatever is under
+           it; see js/folder-menu.js. -->
+      <div class="folder-menu" id="folder-menu" hidden>
+        <div class="folder-menu__head">
+          <span class="folder-menu__title">Folders</span>
+          <button class="folder-menu__edit" id="folder-edit" type="button" aria-pressed="false">Edit</button>
+        </div>
+
+        <ul class="folder-menu__list" id="folder-list"></ul>
+
+        <form class="folder-menu__new" id="folder-create">
+          <input class="field__input" id="field-new-folder" type="text" placeholder="New folder name"
+                 autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="60">
+          <button class="button" id="folder-create-submit" type="submit">Create</button>
+        </form>
+
+        <p class="form__error folder-menu__error" id="folder-menu-error" hidden></p>
+      </div>
+      </div>
+
+    </div>
+  </header>
+
+  <div class="scrim" id="folder-scrim" hidden></div>
+
+  <main class="app-main">
+    <ul class="word-list" id="word-list" aria-label="Saved words"></ul>
+
+    <!-- The same words one screen at a time, shuffled; see js/cards.js. -->
+    <div class="cards" id="cards" aria-label="Cards, shuffled" hidden></div>
+
+    <!-- Quiz home: what is waiting, and the way in. -->
+    <section class="quiz-home" id="quiz-home" hidden>
+      <p class="quiz-home__label">Ready now</p>
+      <p class="quiz-home__count" id="quiz-ready">0</p>
+      <p class="quiz-home__meta">
+        <span class="quiz-home__unknown" id="quiz-unknown"></span>
+        <span class="quiz-home__new" id="quiz-new"></span>
+      </p>
+
+      <button class="button quiz-home__start" id="quiz-start" type="button">Start quiz</button>
+
+      <div class="quiz-home__progress" id="quiz-progress">
+        <p class="quiz-home__caption">Progress in this folder</p>
+        <div class="bar" id="quiz-bar">
+          <span class="bar__part bar__part--new" id="bar-new"></span>
+          <span class="bar__part bar__part--learning" id="bar-learning"></span>
+          <span class="bar__part bar__part--solid" id="bar-solid"></span>
+        </div>
+        <p class="quiz-home__legend">
+          <span id="legend-new"></span>
+          <span id="legend-learning"></span>
+          <span id="legend-solid"></span>
+        </p>
+      </div>
+
+      <p class="quiz-home__empty" id="quiz-empty" hidden>Add a word to quiz yourself on it.</p>
+    </section>
+
+    <p class="empty" id="empty-state" hidden>
+      <span class="empty__title" id="empty-title">No words yet</span>
+      <span class="empty__hint" id="empty-hint">Tap + to add your first one.</span>
+    </p>
+  </main>
+
+  <!-- The quiz itself, over everything: no header, no tab bar, one card. -->
+  <section class="quiz" id="quiz" hidden>
+    <div class="quiz__bar">
+      <button class="quiz__end" id="quiz-end" type="button">End</button>
+      <span class="quiz__count" id="quiz-answered">0 answered</span>
+    </div>
+
+    <!-- Runs down while a card is up; see js/quiz.js. Hidden when the
+         timer is switched off in Settings. -->
+    <div class="quiz__timer" id="quiz-timer" aria-hidden="true" hidden>
+      <span class="quiz__timer-fill" id="quiz-timer-fill"></span>
+    </div>
+
+    <div class="quiz__stage" id="quiz-stage"></div>
+
+    <div class="quiz__foot" id="quiz-foot">
+      <p class="quiz__hint" id="quiz-flip-hint">Tap the card to see the answer</p>
+
+      <div class="quiz__actions" id="quiz-actions">
+        <button class="grade grade--missed" id="grade-missed" type="button">Missed</button>
+        <button class="grade grade--got" id="grade-got" type="button">Got it</button>
+      </div>
+    </div>
+
+    <!-- Shown by js/quiz.js when the session ends. -->
+    <div class="quiz__summary" id="quiz-summary" hidden>
+      <h2 class="quiz__summary-title">Session done</h2>
+      <p class="quiz__summary-line" id="summary-answered"></p>
+      <p class="quiz__summary-line" id="summary-labels"></p>
+      <button class="button" id="quiz-done" type="button">Back to quiz</button>
+    </div>
+  </section>
+
+  <!-- Built by js/footer.js: five slots, in the order Settings holds. -->
+  <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+
+  <!-- Detail view: every field of a single word. -->
+  <dialog class="sheet sheet--tall" id="detail-dialog" aria-labelledby="detail-word">
+    <div class="sheet__grip" aria-hidden="true"><span class="sheet__handle"></span></div>
+
+    <div class="sheet__body">
+      <!-- margin-block:auto on this wrapper centres short entries without the
+           overflow clipping that justify-content:center would cause. -->
+      <div class="detail__content">
+        <div class="detail__tags">
+          <p class="detail__pos" id="detail-pos"></p>
+          <!-- Archives the word, or puts it back where it came from. -->
+          <button class="detail__archive" id="detail-archive" type="button" aria-pressed="false">
+            <span id="detail-archive-text"></span>
+          </button>
+        </div>
+
+        <h2 class="detail__word" id="detail-word"></h2>
+
+        <section class="detail__block" id="detail-definition-block">
+          <h3 class="detail__heading">Definition</h3>
+          <p class="detail__text" id="detail-definition"></p>
+        </section>
+
+        <section class="detail__block" id="detail-note-block">
+          <h3 class="detail__heading">Note</h3>
+          <p class="detail__text" id="detail-note"></p>
+        </section>
+
+        <div class="wordlinks detail__links">
+          <a class="wordlink" id="detail-youglish" target="_blank" rel="noopener noreferrer">
+            <span>youglish</span>
+            <svg class="wordlink__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </a>
+          <a class="wordlink" id="detail-duckduckgo" target="_blank" rel="noopener noreferrer">
+            <span>duckduckgo</span>
+            <svg class="wordlink__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet__actions">
+      <button class="button button--ghost" id="detail-delete" type="button">Delete</button>
+      <button class="button" id="detail-edit" type="button">Edit</button>
+    </div>
+  </dialog>
+
+  <!-- Add / edit form. Field order is fixed: word, part of speech, definition, note. -->
+  <dialog class="sheet" id="form-dialog" aria-labelledby="form-title">
+    <div class="sheet__grip" aria-hidden="true"><span class="sheet__handle"></span></div>
+
+    <!-- Outside the scroller, so the title and the grip stay put and a
+         downward swipe is always within reach. -->
+    <div class="sheet__head sheet__head--plain">
+      <h2 class="sheet__title" id="form-title">New word</h2>
+    </div>
+
+    <form class="sheet__body form" id="word-form" novalidate>
+      <label class="field">
+        <span class="field__label">Word</span>
+        <input class="field__input" id="field-word" name="word" type="text" required
+               autocomplete="off" autocapitalize="none" spellcheck="false">
+      </label>
+
+      <!-- A button, not a <select>: the native control opens the iOS wheel
+           picker, which cannot be styled to match the rest of the app. -->
+      <div class="field">
+        <span class="field__label" id="pos-label">Part of speech</span>
+        <button class="field__input field__trigger" id="field-pos" type="button"
+                aria-labelledby="pos-label" aria-haspopup="listbox">
+          <span class="field__value" id="field-pos-value"></span>
+          <svg class="field__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      </div>
+
+      <label class="field">
+        <span class="field__label">Definition</span>
+        <textarea class="field__input field__textarea" id="field-definition" name="definition" rows="3"></textarea>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Note</span>
+        <textarea class="field__input field__textarea" id="field-note" name="note" rows="3"></textarea>
+      </label>
+
+      <div class="field">
+        <span class="field__label" id="color-label">Colour</span>
+        <div class="swatches" id="field-color" role="radiogroup" aria-labelledby="color-label"></div>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="word-folder-label">Folder</span>
+        <button class="field__input field__trigger" id="field-folder" type="button"
+                aria-labelledby="word-folder-label" aria-haspopup="listbox">
+          <span class="field__value" id="field-folder-value"></span>
+          <svg class="field__chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="form__error" id="form-error" hidden></p>
+
+      <div class="sheet__actions">
+        <button class="button button--ghost" id="form-cancel" type="button">Cancel</button>
+        <button class="button" id="form-submit" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Shared option picker: part of speech and sort order both use it. -->
+  <dialog class="sheet sheet--picker" id="picker-dialog" aria-labelledby="picker-title">
+    <div class="sheet__grip" aria-hidden="true"><span class="sheet__handle"></span></div>
+
+    <div class="sheet__head">
+      <h2 class="sheet__title" id="picker-title"></h2>
+      <button class="icon-button" type="button" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="sheet__body">
+      <ul class="options" id="picker-options" role="listbox" aria-labelledby="picker-title"></ul>
+    </div>
+  </dialog>
+
+  <!-- Folder name, for renaming; new folders are made in the folder menu. -->
+  <dialog class="sheet" id="folder-dialog" aria-labelledby="folder-form-title">
+    <div class="sheet__grip" aria-hidden="true"><span class="sheet__handle"></span></div>
+
+    <form class="sheet__body form" id="folder-form" novalidate>
+      <h2 class="sheet__title" id="folder-form-title">Rename folder</h2>
+
+      <label class="field">
+        <span class="field__label">Name</span>
+        <input class="field__input" id="field-folder-name" name="name" type="text" required
+               autocomplete="off" autocapitalize="words" spellcheck="false">
+      </label>
+
+      <p class="form__error" id="folder-error" hidden></p>
+
+      <div class="sheet__actions">
+        <button class="button button--ghost" id="folder-cancel" type="button">Cancel</button>
+        <button class="button" id="folder-submit" type="submit">Rename</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Centred confirmation. Tapping outside cancels. -->
+  <dialog class="alert" id="confirm-dialog" aria-labelledby="confirm-title">
+    <div class="alert__body">
+      <h2 class="alert__title" id="confirm-title"></h2>
+      <p class="alert__text" id="confirm-text"></p>
+    </div>
+    <div class="alert__actions">
+      <button class="button button--ghost" id="confirm-cancel" type="button">Cancel</button>
+      <button class="button button--danger" id="confirm-accept" type="button">Delete</button>
+    </div>
+  </dialog>
+
+  <!-- First-run setup: endpoint + passphrase are stored on the device, never in the repo. -->
+  <dialog class="sheet" id="setup-dialog" aria-labelledby="setup-title">
+    <div class="sheet__grip" id="setup-grip" aria-hidden="true" hidden><span class="sheet__handle"></span></div>
+
+    <div class="sheet__dismiss" id="setup-dismiss" hidden>
+      <button class="icon-button" type="button" data-close aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <form class="sheet__body form" id="setup-form" novalidate>
+      <h2 class="sheet__title" id="setup-title">Connect</h2>
+      <p class="sheet__lead">
+        Paste the Web App URL from your Apps Script deployment and the passphrase you set in
+        <code>Code.gs</code>. Both are stored on this device only, so every device needs this once.
+      </p>
+
+      <!-- Which deployment this device is talking to, and whether its code is
+           current. Two devices on different deployments is the usual reason
+           one of them shows old behaviour after an update. -->
+      <p class="setup__status" id="setup-status" hidden></p>
+
+      <label class="field">
+        <span class="field__label">Web App URL</span>
+        <input class="field__input" id="field-url" name="url" type="url"
+               placeholder="https://script.google.com/macros/s/.../exec"
+               autocomplete="off" autocapitalize="none" spellcheck="false" required>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Passphrase</span>
+        <input class="field__input" id="field-passphrase" name="passphrase" type="password"
+               autocomplete="off" autocapitalize="none" spellcheck="false" required>
+      </label>
+
+      <p class="form__error" id="setup-error" hidden></p>
+
+      <div class="sheet__actions">
+        <button class="button button--danger" id="setup-disconnect" type="button" hidden>Disconnect</button>
+        <button class="button" id="setup-submit" type="submit">Connect</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Settings: the footer's order, the list's order, the quiz timer, and
+       the connection. See js/settings.js. -->
+  <dialog class="sheet sheet--tall" id="settings-dialog" aria-labelledby="settings-title">
+    <div class="sheet__grip" aria-hidden="true"><span class="sheet__handle"></span></div>
+
+    <div class="sheet__body">
+      <div class="sheet__head">
+        <h2 class="sheet__title" id="settings-title">Settings</h2>
+        <button class="header-action" id="settings-close" type="button" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </div>
+
+      <section class="settings__section">
+        <h3 class="settings__label">Footer</h3>
+        <ul class="settings__list" id="settings-footer"></ul>
+      </section>
+
+      <section class="settings__section">
+        <h3 class="settings__label">List order</h3>
+        <div class="settings__choices" id="settings-sort"></div>
+      </section>
+
+      <section class="settings__section">
+        <h3 class="settings__label">Quiz timer</h3>
+        <div class="settings__toggle-row">
+          <span class="settings__note">Seven seconds a card. Running out counts as missed.</span>
+          <button class="settings__toggle" id="settings-timer" type="button"
+                  role="switch" aria-checked="true" aria-label="Quiz timer">
+            <span class="settings__knob" aria-hidden="true"></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="settings__section">
+        <h3 class="settings__label">Connection</h3>
+        <p class="settings__note" id="settings-connection"></p>
+        <button class="button settings__wide" id="settings-connect" type="button">Open connection</button>
+      </section>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <div class="banner banner--hint" id="install-hint" hidden>
+    <span class="banner__text">Add to Home Screen: tap Share, then “Add to Home Screen”.</span>
+    <button class="banner__action" id="install-dismiss" type="button">Got it</button>
+  </div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

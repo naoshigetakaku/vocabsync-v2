@@ -1,0 +1,439 @@
+/* ==========================================================================
+   layout.css — app shell, header, tabs, word list.
+   ========================================================================== */
+
+/* Outside the scroller, so it cannot move with the list. */
+.app-header {
+  flex: none;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding-top: var(--safe-top);
+  padding-left: max(var(--page-pad), var(--safe-left));
+  padding-right: max(var(--page-pad), var(--safe-right));
+}
+
+.app-header__bar {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 0 10px;
+}
+
+/* The folder menu hangs off the bottom of the title bar and covers whatever
+   is below it, so the tabs never sit between the two. */
+.app-header__anchor {
+  position: relative;
+  z-index: 2;
+}
+
+/* The name of the open folder, and the button that opens the folder menu. */
+.app-header__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-header__title span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-header__chevron {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.4;
+  color: var(--text-faint);
+  transition: transform var(--dur-mid) var(--ease-out);
+}
+
+.app-header__title[aria-expanded="true"] .app-header__chevron { transform: rotate(180deg); }
+
+/* Archived is not a folder, so there is nothing to pick and no chevron to
+   promise one. The title keeps its size and weight either way. */
+.app-header__title.is-fixed .app-header__chevron { display: none; }
+.app-header__title.is-fixed { cursor: default; }
+
+/* Right-hand cluster of header controls. */
+.app-header__tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  align-self: center;
+}
+
+/* Icon-only header control. */
+.header-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-spring);
+}
+
+.header-action:active { transform: scale(0.9); }
+
+.header-action svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.9;
+}
+
+/* The only scrolling region on the home screen. */
+.app-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Keeps a scroll that runs off the end from reaching the document. */
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-left: max(var(--page-pad), var(--safe-left));
+  padding-right: max(var(--page-pad), var(--safe-right));
+  /* Leave room for the floating button; the tab bar is in the flow below. */
+  padding-bottom: 96px;
+}
+
+/* --- Tab bar -------------------------------------------------------------- */
+/* In the flow rather than fixed, so the list above it simply ends where it
+   begins and nothing has to be told how tall it is. */
+
+.tabbar {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  padding-bottom: var(--safe-bottom);
+}
+
+.tabbar__tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 7px;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.tabbar__tab svg { width: 22px; height: 22px; stroke-width: 1.8; }
+.tabbar__tab.is-active { color: var(--text); }
+.tabbar__tab:active { transform: scale(0.96); }
+
+/* The label is the slot's name, except on List where it is the sort order. */
+.tabbar__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* New word: an action rather than a destination, so it never takes the
+   active state and is drawn as a disc instead of an outline. */
+.tabbar__tab--add {
+  justify-content: center;
+  padding-top: 5px;
+}
+
+.tabbar__add-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  /* The glow: a soft ring just outside the disc, and light thrown below it. */
+  box-shadow:
+    0 0 0 4px var(--add-halo),
+    0 4px 14px var(--add-glow),
+    inset 0 1px 0 var(--add-rim);
+}
+
+.tabbar__tab--add svg {
+  width: 23px;
+  height: 23px;
+  stroke-width: 2.2;
+  /* The glyph itself is lit, which is what reads as a highlight at this size. */
+  filter: drop-shadow(0 0 5px var(--add-spark));
+}
+
+.tabbar__tab--add:active .tabbar__add-ring { transform: scale(0.94); }
+
+/* How many words the quiz has waiting in the open folder. */
+.tabbar__badge {
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 7px);
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--unknown);
+  color: var(--on-badge);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* Behind the folder menu, over everything else the header does not cover. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: var(--scrim);
+  opacity: 0;
+  transition: opacity var(--dur-mid) var(--ease-out);
+}
+
+.scrim.is-open { opacity: 1; }
+
+/* The quiz takes the whole screen: no header, no tab bar, one card. */
+body.is-quizzing .app-header,
+body.is-quizzing .tabbar { display: none; }
+
+/* Held still while a dialog is open; see js/scroll-lock.js. */
+.app-main.is-locked { overflow: hidden; }
+
+/* --- Word list ----------------------------------------------------------- */
+/* The home screen shows the word and nothing else. */
+
+.word-list { padding-top: 4px; }
+
+.word-list li { border-bottom: 1px solid var(--line); }
+
+/* --- Swipe to file ---------------------------------------------------------
+   The row is opaque and slides over labels that are already in place, so the
+   action is uncovered rather than drawn — which is why nothing has to be
+   inserted or measured mid-gesture. Right uncovers "clear label" on the left
+   edge; left uncovers "don't know" on the right edge. */
+
+.word-item {
+  position: relative;
+  /* Kept off the compositor until a finger is actually on it. */
+  overflow: hidden;
+}
+
+.word-item__action {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.word-item__action--restore {
+  justify-content: flex-start;
+  color: var(--known);
+  background: var(--known-tint);
+}
+
+.word-item__action--archive {
+  justify-content: flex-end;
+  color: var(--unknown);
+  background: var(--unknown-tint);
+}
+
+/* Only the label for the direction of travel ever shows. */
+.word-item.is-right .word-item__action--restore,
+.word-item.is-left  .word-item__action--archive {
+  opacity: var(--row-progress, 0);
+}
+
+.word-item__icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.2;
+}
+
+/* Opaque, and positioned so it paints above the absolutely placed labels
+   rather than under them. */
+.word-item .word-row {
+  position: relative;
+  background: var(--bg);
+}
+
+/* Under the finger: no transition at all, or the row trails behind it. The
+   row already carries a 140ms transform transition for its press feedback. */
+.word-item.is-swiping .word-row {
+  transform: translateX(var(--row-x, 0px));
+  transition: none;
+}
+
+/* Springing back, or leaving for good — the same movement either way, only
+   the destination differs. */
+.word-item.is-exiting .word-row {
+  transform: translateX(var(--row-x, 0px));
+  transition: transform 190ms var(--ease-out);
+}
+
+.word-item.is-exiting .word-item__action {
+  transition: opacity 190ms var(--ease-out);
+}
+
+/* Applied for a single frame while the gesture state is cleared, so the row
+   snaps back to rest instead of transitioning there. */
+.word-item.is-reset .word-row {
+  transform: none !important;
+  transition: none !important;
+}
+
+/* The gap closes after the row has left, so the list does not jump. */
+.word-item.is-collapsing {
+  transition: height 200ms var(--ease-out), opacity 200ms var(--ease-out);
+  opacity: 0;
+}
+
+/* 11px padding with 17px type gives a ~48px row, which fits roughly 1.3x as
+   many words on a screen as the original ~63px row. */
+.word-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+
+.word-row:active { transform: scale(0.985); }
+
+.word-row__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* On the Archived tab only: where the word goes back to. The rows there
+   come from every folder at once, so the word alone is not enough. */
+.word-row__home {
+  flex: none;
+  margin-left: auto;
+  padding-left: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+/* A word queued for upload is dimmed until the server confirms it. */
+.word-row--pending { color: var(--text-dim); }
+
+.word-row--pending .word-row__text::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  vertical-align: middle;
+}
+
+/* --- Empty states -------------------------------------------------------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 96px 0;
+  text-align: center;
+}
+
+.empty__title { font-size: 17px; font-weight: 600; color: var(--text-dim); }
+.empty__hint  { font-size: 15px; color: var(--text-faint); }
+
+/* --- Wider screens ------------------------------------------------------- */
+
+@media (min-width: 700px) {
+  .app-header__inner,
+  .word-list,
+  .empty {
+    max-width: 640px;
+    margin-inline: auto;
+  }
+  .app-header__title { font-size: 30px; }
+}
+
+/* --- Browser on a wide screen ----------------------------------------------
+   iPad and Mac browsers get a layout that spreads out with the window. The
+   installed app is left exactly as it is: it reports display-mode standalone,
+   so none of this applies there, and an engine that does not understand the
+   query at all falls back to the fixed layout rather than the wide one. */
+
+@media (display-mode: browser) and (min-width: 700px) {
+  :root {
+    --page-pad: 28px;
+    --content-max: 1180px;
+  }
+
+  .app-header__inner,
+  .word-list,
+  .empty {
+    max-width: var(--content-max);
+  }
+
+  /* Row-major cells rather than newspaper columns: in a list that scrolls, a
+     reader should never have to go back up to find where the next column
+     starts. Cells in a row stretch to the same height, so the rules under
+     them line up across the page. */
+  .word-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    column-gap: 36px;
+  }
+}
+
+/* Rows sliding into the cells they move to after one leaves; see
+   js/list.js. Only ever set in the multi-column layout above. */
+.word-item.is-reflowing {
+  transition: transform 260ms var(--ease-out);
+}
