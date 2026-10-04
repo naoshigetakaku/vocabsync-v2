@@ -80,9 +80,11 @@ Deleting the icon deletes the local cache with it. Nothing is lost — the words
 are in the spreadsheet — but the app has to be connected again.
 
 The installed app always keeps the fixed, phone-shaped layout. In a browser
-window 700px or wider (iPad or Mac) the layout spreads out instead: a
-multi-column word list and larger cards. The switch is the
-`display-mode: browser` media query in `css/layout.css`.
+window 700px or wider (iPad or Mac) the layout spreads out instead: the word
+list becomes two columns, and three once there is room, and the cards grow.
+Never four — past three the cells are narrower than the longest expressions in
+them. The switch is the `display-mode: browser` media query in
+`css/layout.css`.
 
 ## What is in the sheet
 
@@ -141,6 +143,19 @@ the list, the cards and the quiz at once; restoring does not, because it only
 undoes that. Archived is grey rather than red throughout: putting a word aside
 is housekeeping, not a verdict on it.
 
+None of this waits on the sheet. The change is applied locally and committed
+before it is sent, so the row has already gone by the time the request leaves
+— and the next word can be swiped straight away, with several changes on their
+way at once. A dimmed row is one the sheet has not confirmed yet; the only
+thing still waited on is the confirmation itself, since two of those would be
+two dialogs over each other.
+
+Changes that overlap are settled by which was made last, not by which is
+answered first. Each request supersedes whatever was outstanding for that
+word, and a reply that has been superseded is dropped: it describes a state
+the app has already moved past. The same token stops a late reply putting back
+a word that has since been deleted.
+
 **The label.** `status` is shown nowhere. It survives as the input to the
 scheduler: missing a word in the quiz labels it, a labelled word comes round at
 0.4× its gap — never more than 10 answers away, and never sooner than the
@@ -163,6 +178,25 @@ week away leaves no pile of overdue cards, and a long sitting never runs out.
 Answers are applied locally at once and sent to the sheet five at a time
 through `updateMany`, so no card ever waits on the network — and nothing is
 lost if the app is closed mid-session.
+
+**The keyboard.** On the cards and in the quiz, Enter or Space turns whichever
+card is on screen and turns it back, without having to Tab to it first — with
+one card to a screen there is never any doubt about which one is meant. On the
+cards, up and down move through the deck. In the quiz, S or Enter starts a
+session and E ends one; once a card is turned, the left and right arrows
+answer it — left for Missed, right for Got it, matching where the two buttons
+sit. Before the turn the arrows do nothing, for the same reason the buttons
+are not there yet.
+
+Ending a session goes straight back to the quiz home. The result — how many
+answers, what share of them right, how many to see again — arrives as a toast
+on the way out, rather than as a screen with a button to leave it, which was
+one more tap that said nothing the counter in the corner had not already
+said.
+
+The progress bar's three stages are one red deepening left to right: barely
+met, working on it, known. Each figure under it carries its own stop and a dot
+of it, so the bar can be read without counting along from the left.
 
 The colour changes the word's own type only — never the definition, the note,
 or the part-of-speech badge — and the stored value is the key rather than a hex
@@ -223,7 +257,7 @@ all. Filling it in trades that for one less field during setup.
 | `js/picker.js` | The app's own option list, replacing `<select>`. |
 | `js/confirm.js` | Centred confirmation popup. |
 | `js/toast.js` | Transient messages. |
-| `js/sort.js` | List ordering and its picker. |
+| `js/sort.js` | List ordering: New–Old and Old–New, cycled from the tab. |
 | `js/links.js` | The YouGlish and DuckDuckGo pair, shared by three screens. |
 | `js/view.js` | Open folder, All / Archived tab, and which tab bar section. |
 | `js/list.js` | The word list. |

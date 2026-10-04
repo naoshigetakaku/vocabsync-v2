@@ -114,9 +114,9 @@
           <span class="bar__part bar__part--solid" id="bar-solid"></span>
         </div>
         <p class="quiz-home__legend">
-          <span id="legend-new"></span>
-          <span id="legend-learning"></span>
-          <span id="legend-solid"></span>
+          <span class="quiz-home__key quiz-home__key--new" id="legend-new"></span>
+          <span class="quiz-home__key quiz-home__key--learning" id="legend-learning"></span>
+          <span class="quiz-home__key quiz-home__key--solid" id="legend-solid"></span>
         </p>
       </div>
 
@@ -152,14 +152,6 @@
         </button>
       </div>
     </div>
-
-    <!-- Shown by js/quiz.js when the session ends. -->
-    <div class="quiz__summary" id="quiz-summary" hidden>
-      <h2 class="quiz__summary-title">Session done</h2>
-      <p class="quiz__summary-line" id="summary-answered"></p>
-      <p class="quiz__summary-line" id="summary-labels"></p>
-      <button class="button" id="quiz-done" type="button">Back to quiz</button>
-    </div>
   </section>
 
   <button class="fab" id="add-button" type="button" aria-label="Add a word">
@@ -187,7 +179,6 @@
         <path d="M8.6 8.4a3.5 3.5 0 1 1 4.6 3.3c-1 .4-1.6 1.2-1.6 2.3v.6M12 18.6h.01" />
       </svg>
       <span>Quiz</span>
-      <span class="tabbar__badge" id="quiz-badge" hidden></span>
     </button>
   </nav>
 

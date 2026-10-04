@@ -68,8 +68,15 @@
   --archived:      #6E6E6E;
   --archived-tint: rgba(110, 110, 110, 0.13);
 
+  /* The three stages a word passes through in the quiz, as one red deepening
+     left to right: barely met, working on it, known. One hue rather than
+     three keeps the bar reading as a single scale, and each stop is dark
+     enough to carry 12px text on white. */
+  --stage-new:      #E06666;
+  --stage-learning: #C41F1F;
+  --stage-solid:    #7A1414;
+
   /* The All / Known / Unknown control. */
-  --on-badge:       #FFFFFF;
 
   /* The add button's glass: a highlight down the top, a pool of light at the
      foot, and the rim where they meet the edge. */
@@ -162,7 +169,12 @@
     --archived:      #A8A8A8;
     --archived-tint: rgba(168, 168, 168, 0.16);
 
-    --on-badge:       #202020;
+    /* The same ramp, lifted off the charcoal: the darkest stop here is the
+       one that would otherwise disappear into the background. */
+    --stage-new:      #F5A3A3;
+    --stage-learning: #E05A5A;
+    --stage-solid:    #B34040;
+
 
     /* The button is near-white here, so the glass is shaded rather than lit. */
     --fab-sheen: rgba(255, 255, 255, 0.85);

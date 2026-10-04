@@ -16,7 +16,7 @@ import {
 import { initFolderMenu, renderFolderMenu, isFolderMenuOpen, closeFolderMenu } from './folder-menu.js';
 import { initFolderForm, openRenameFolder } from './folder-form.js';
 import { initCards, renderCards, shuffleCards } from './cards.js';
-import { initQuiz, renderQuizHome, readyCount, isQuizRunning } from './quiz.js';
+import { initQuiz, renderQuizHome, isQuizRunning } from './quiz.js';
 import { initDetail, openDetail, syncDetail } from './detail.js';
 import { initForm, openCreateForm, openEditForm } from './form.js';
 import { initSetup, openSetup } from './setup.js';
@@ -37,7 +37,6 @@ const quizHomeElement = document.getElementById('quiz-home');
 const mainElement = document.querySelector('.app-main');
 const filterElement = document.getElementById('filter');
 const tabbarElement = document.getElementById('tabbar');
-const badgeElement = document.getElementById('quiz-badge');
 
 const VIEW_ANIMATION_MS = 420;
 
@@ -116,10 +115,6 @@ function paintHeader() {
     tab.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
 
-  const ready = readyCount();
-  badgeElement.textContent = String(ready);
-  badgeElement.hidden = ready === 0;
-
   // Only the list has somewhere to put a new word, and on the other tabs the
   // button would sit on top of a card.
   addButton.hidden = tab !== 'list';
@@ -157,6 +152,9 @@ function renderCurrent() {
   quizHomeElement.hidden = tab !== 'quiz';
   // The deck does its own snap scrolling, so the page must stop scrolling.
   mainElement.classList.toggle('is-cards', tab === 'cards');
+  // Both of these centre their content on the screen, which needs the room
+  // kept clear for the add button back; see components.css.
+  mainElement.classList.toggle('is-quiz-home', tab === 'quiz');
 
   if (tab === 'quiz') {
     hideEmpty();
@@ -195,6 +193,18 @@ function staysAfterSwipe() {
   return false;
 }
 
+/**
+ * Archives or restores one word.
+ *
+ * Returns as soon as the change is on screen, not when the sheet has it. The
+ * store applies it locally and commits before it sends, so the row has
+ * already gone by then; waiting for the network would only mean the next row
+ * could not be swiped until this one came back. Several can now be on their
+ * way at once, which is what the outbox was for.
+ *
+ * The confirmation is the one thing still waited on — two of those at once
+ * would be two dialogs over each other.
+ */
 async function performSwipe(id, direction) {
   const archiving = direction === LEFT;
   const word = getWord(id);
@@ -211,13 +221,14 @@ async function performSwipe(id, direction) {
   // The rows after it glide up into the gap it leaves.
   animateNextReflow();
 
-  try {
-    await setArchived(id, archiving);
-    toast(archiving ? 'Archived.' : 'Restored.');
-  } catch (error) {
-    toast(error.message);
-    renderCurrent();
-  }
+  setArchived(id, archiving)
+    .then(() => toast(archiving ? 'Archived.' : 'Restored.'))
+    .catch((error) => {
+      // The store has already put the word back where it was; the list just
+      // has to be told.
+      toast(error.message);
+      renderCurrent();
+    });
 }
 
 /* --- Service worker ------------------------------------------------------- */

@@ -203,22 +203,6 @@
 .tabbar__tab.is-active { color: var(--text); }
 .tabbar__tab:active { transform: scale(0.96); }
 
-/* How many words the quiz has waiting in the open folder. */
-.tabbar__badge {
-  position: absolute;
-  top: 3px;
-  left: calc(50% + 7px);
-  min-width: 17px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--unknown);
-  color: var(--on-badge);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 17px;
-  text-align: center;
-}
-
 /* Behind the folder menu, over everything else the header does not cover. */
 .scrim {
   position: fixed;
@@ -431,10 +415,15 @@ body.is-quizzing .fab { display: none; }
   /* Row-major cells rather than newspaper columns: in a list that scrolls, a
      reader should never have to go back up to find where the next column
      starts. Cells in a row stretch to the same height, so the rules under
-     them line up across the page. */
+     them line up across the page.
+
+     300px against the 1180px cap gives two columns on a narrow window and
+     three on a wide one, and never four: past three the cells are narrower
+     than the longest expressions in them, and the list starts reading as a
+     table of fragments. */
   .word-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     column-gap: 36px;
   }
 }

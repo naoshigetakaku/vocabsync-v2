@@ -155,6 +155,36 @@ function hasQueuedUpdate(id) {
  * Takes the server's copy of a word — unless something newer for it is still
  * queued, in which case the local copy is already ahead and stays.
  */
+/**
+ * The newest change sent for each word, as a token.
+ *
+ * Several changes to one word can now be on their way at once — swipe a word
+ * into the archive and straight back out again, and the second request leaves
+ * before the first has answered. Responses can then arrive in either order,
+ * and the older one would otherwise overwrite the newer: replaceLocal even
+ * puts a word back that a later delete had removed.
+ *
+ * So every request takes a token, superseding whatever was outstanding, and
+ * only the holder of the current token is allowed to write the answer back.
+ * A superseded reply is simply dropped: something newer is already on screen
+ * and already on its way to the sheet.
+ */
+const latest = new Map();
+
+function supersede(id) {
+  const token = {};
+  latest.set(id, token);
+  return token;
+}
+
+function isLatest(id, token) {
+  return latest.get(id) === token;
+}
+
+function settle(id, token) {
+  if (isLatest(id, token)) latest.delete(id);
+}
+
 function acceptSaved(saved) {
   if (hasQueuedUpdate(saved.id)) return;
   replaceLocal(saved.id, Object.assign({}, saved, { pending: false }));
@@ -398,12 +428,15 @@ export async function updateWord(changes) {
   // This rewrite carries the latest of everything, quiz progress included,
   // so anything older still waiting for this word is obsolete.
   dropQueuedUpdates(fields.id);
+  const token = supersede(fields.id);
   commit();
 
   try {
     const saved = await api.update(fields);
-    acceptSaved(saved);
-    commit();
+    if (isLatest(fields.id, token)) {
+      acceptSaved(saved);
+      commit();
+    }
     return saved;
   } catch (error) {
     if (isRetryable(error)) {
@@ -411,9 +444,15 @@ export async function updateWord(changes) {
       commit();
       return optimistic;
     }
-    replaceLocal(fields.id, previous);
-    commit();
+    // Only roll back what is still on screen. Something newer has replaced
+    // this, and putting the old row back would undo that too.
+    if (isLatest(fields.id, token)) {
+      replaceLocal(fields.id, previous);
+      commit();
+    }
     throw error;
+  } finally {
+    settle(fields.id, token);
   }
 }
 
@@ -465,6 +504,9 @@ export async function deleteWord(id) {
 
   removeLocal(id);
   dropQueuedUpdates(id);
+  // An update already on its way would otherwise answer after this and put
+  // the word back; see the note on `latest`.
+  supersede(id);
   commit();
 
   try {
@@ -486,5 +528,7 @@ export function reset() {
   words = [];
   folders = [];
   outbox = [];
+  // Nothing still in the air belongs to this account any more.
+  latest.clear();
   commit();
 }

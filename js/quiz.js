@@ -6,6 +6,12 @@
  * transform between two faces the card mode used, so nothing is built or
  * measured at the moment of the tap.
  *
+ * On a keyboard: S or Enter starts a session from the quiz home, E ends one,
+ * Enter or Space turns the card, and once it is turned the left and right
+ * arrows answer it — left for Missed, right for Got it, which is the order
+ * the two buttons sit in. Before the turn the arrows do nothing, for the same
+ * reason the buttons are not there yet.
+ *
  * What to ask and when lives in scheduler.js; this file is the screen.
  */
 
@@ -45,10 +51,6 @@ const missedButton = document.getElementById('grade-missed');
 const missedHint = document.getElementById('grade-missed-hint');
 const gotButton = document.getElementById('grade-got');
 const gotHint = document.getElementById('grade-got-hint');
-const summaryElement = document.getElementById('quiz-summary');
-const summaryAnswered = document.getElementById('summary-answered');
-const summaryLabels = document.getElementById('summary-labels');
-const doneButton = document.getElementById('quiz-done');
 
 /** Must match the card swap in animations.css. */
 const SWAP_MS = 170;
@@ -92,11 +94,6 @@ export function renderQuizHome() {
       ? counts.new + ' new'
       : stage === 'learning' ? counts.learning + ' learning' : counts.solid + ' solid';
   });
-}
-
-/** For the badge on the tab bar. */
-export function readyCount() {
-  return summarise(pool(), tickNow()).ready;
 }
 
 /* --- The card ------------------------------------------------------------- */
@@ -210,6 +207,71 @@ function flip() {
  * Promotes the card to its own layer as the finger lands, ~100ms before the
  * tap that turns it, so the first frame of the turn is not spent making one.
  */
+/** Somewhere text is being entered, where every key means itself. */
+function isTyping(element) {
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+    || element.isContentEditable;
+}
+
+/**
+ * The keyboard, on the quiz home and during a session.
+ *
+ * Guarded on the session rather than on the screen once one is running: the
+ * quiz covers everything while it is up, so there is nothing else these keys
+ * could mean.
+ */
+function onKey(event) {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  // A dialog is in front, and its own controls own the keyboard.
+  if (document.querySelector('dialog[open]')) return;
+
+  const active = document.activeElement;
+  if (isTyping(active)) return;
+
+  const key = event.key;
+
+  // No session yet: the quiz home, if that is the tab showing.
+  if (!session) {
+    if (homeElement.hidden || startButton.disabled) return;
+    if (key !== 'Enter' && key !== ' ' && key !== 's' && key !== 'S') return;
+    // A focused button already means Enter and Space; let it do its own job
+    // rather than starting the session twice.
+    if (key !== 's' && key !== 'S' && active && active.closest('a, button')) return;
+    event.preventDefault();
+    startQuiz();
+    return;
+  }
+
+  if (!session.currentId) return;
+
+  // The same thing the End button does, and available at any point — there is
+  // no card state in which stopping should be refused.
+  if (key === 'e' || key === 'E') {
+    event.preventDefault();
+    finish();
+    return;
+  }
+
+  if (key === 'Enter' || key === ' ') {
+    event.preventDefault();
+    flip();
+    return;
+  }
+
+  // Left and right match where Missed and Got it sit on screen. They only
+  // answer once the card has been turned, exactly as the buttons do.
+  if (!session.flipped) return;
+  if (key === 'ArrowLeft') {
+    event.preventDefault();
+    grade(false);
+  } else if (key === 'ArrowRight') {
+    event.preventDefault();
+    grade(true);
+  }
+}
+
 function prime(event) {
   const card = event.target.closest('.flashcard');
   if (!card || event.target.closest('a')) return;
@@ -290,31 +352,26 @@ function push() {
   });
 }
 
+/**
+ * Ends the session and goes straight back to the quiz home.
+ *
+ * The result used to be a screen of its own with a button to leave it, which
+ * meant every session ended with one more tap that told you nothing you had
+ * not already seen counted up in the corner. It is a toast now: the same
+ * numbers, on the way out rather than in the way.
+ */
 function finish() {
   if (!session) return;
 
-  const answered = session.answered;
-  if (!answered) {
-    closeQuiz();
-    return;
-  }
+  const { answered, correct, missed } = session;
+  closeQuiz();
 
-  const percent = Math.round((session.correct / answered) * 100);
-  summaryAnswered.textContent = answered + (answered === 1 ? ' answer' : ' answers')
-    + ' · ' + percent + '% right';
+  if (!answered) return;
 
-  summaryLabels.textContent = session.missed
-    ? session.missed + (session.missed === 1 ? ' to see again' : ' to see again')
-    : '';
-  summaryLabels.hidden = !session.missed;
-
-  stageElement.hidden = true;
-  actionsElement.hidden = true;
-  flipHint.hidden = true;
-  summaryElement.hidden = false;
-  endButton.hidden = true;
-
-  push();
+  const percent = Math.round((correct / answered) * 100);
+  const parts = [answered + (answered === 1 ? ' answer' : ' answers'), percent + '% right'];
+  if (missed) parts.push(missed + ' to see again');
+  toast(parts.join(' · '));
 }
 
 export function isQuizRunning() {
@@ -335,8 +392,9 @@ export function startQuiz() {
     flipped: false,
   };
 
-  summaryElement.hidden = true;
   stageElement.hidden = false;
+  actionsElement.hidden = true;
+  flipHint.hidden = false;
   endButton.hidden = false;
   quizElement.hidden = false;
   document.body.classList.add('is-quizzing');
@@ -349,7 +407,6 @@ export function closeQuiz() {
   session = null;
   quizElement.hidden = true;
   stageElement.replaceChildren();
-  summaryElement.hidden = true;
   document.body.classList.remove('is-quizzing');
   push();
   onChange();
@@ -360,7 +417,6 @@ export function initQuiz(handlers) {
 
   startButton.addEventListener('click', startQuiz);
   endButton.addEventListener('click', finish);
-  doneButton.addEventListener('click', closeQuiz);
 
   stageElement.addEventListener('touchstart', prime, { passive: true });
   stageElement.addEventListener('click', (event) => {
@@ -368,12 +424,9 @@ export function initQuiz(handlers) {
     if (event.target.closest('a')) return;
     if (event.target.closest('.flashcard')) flip();
   });
-  stageElement.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    if (!event.target.classList.contains('flashcard')) return;
-    event.preventDefault();
-    flip();
-  });
+  // On the document rather than the stage: the card only receives the key
+  // when it has been tabbed to, and on a Mac nothing has been.
+  document.addEventListener('keydown', onKey);
 
   missedButton.addEventListener('click', () => grade(false));
   gotButton.addEventListener('click', () => grade(true));

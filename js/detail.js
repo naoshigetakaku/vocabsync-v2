@@ -2,7 +2,9 @@
  * detail.js — the dialog that shows every field of one word.
  */
 
-import { getWord, deleteWord, isPending, setArchived, isArchived } from './store.js';
+import {
+  getWord, deleteWord, isPending, isLocalOnly, setArchived, isArchived,
+} from './store.js';
 import { DEFAULT_COLOR } from './config.js';
 import { openDialog, closeDialog, wireDismiss } from './dialog.js';
 import { askConfirm, confirmArchive } from './confirm.js';
@@ -85,13 +87,12 @@ export function initDetail(handlers) {
     // only undoes that, and asking twice for one decision reads as nagging.
     if (!archived && !(await confirmArchive(word))) return;
 
-    try {
-      await setArchived(currentId, !archived);
-      syncDetail();
-      toast(archived ? 'Restored.' : 'Archived.');
-    } catch (error) {
-      toast(error.message);
-    }
+    // Not awaited: the store applies it locally before it sends, so the
+    // dialog can repaint at once and the sheet can catch up in its own time.
+    setArchived(currentId, !archived)
+      .then(() => toast(archived ? 'Restored.' : 'Archived.'))
+      .catch((error) => toast(error.message));
+    syncDetail();
   });
 
   wireDismiss(dialog, () => {
@@ -100,11 +101,15 @@ export function initDetail(handlers) {
 
   editButton.addEventListener('click', () => {
     if (!currentId) return;
-    if (isPending(currentId)) {
-      toast('Still syncing — try again in a moment.');
+    const word = getWord(currentId);
+    // Only a word the server has never seen has to wait: it has no id there
+    // yet, so an edit would have nothing to address. A word whose last change
+    // is merely still in flight can be edited again — the store carries the
+    // newer one and drops the older.
+    if (word && isLocalOnly(word)) {
+      toast('Still saving — try again in a moment.');
       return;
     }
-    const word = getWord(currentId);
     closeDetail();
     // Let the sheet finish closing before the form takes its place.
     setTimeout(() => onEdit(word), 180);

@@ -25,7 +25,7 @@
  * Bump CACHE_VERSION on every release.
  */
 
-var CACHE_VERSION = 'v33';
+var CACHE_VERSION = 'v43';
 var CACHE_NAME = 'vocabsync-' + CACHE_VERSION;
 
 var SHELL = [

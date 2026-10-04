@@ -11,6 +11,10 @@
  * it smooth in the installed app, where the main thread is the first thing
  * iOS starves.
  *
+ * On a keyboard, Enter and Space turn whichever card is on screen, without
+ * having to Tab to it first — with one card to a screen there is never any
+ * doubt about which one is meant. Up and down move through the deck.
+ *
  * A card turns back to its front as soon as it leaves the screen, so coming
  * back to one always asks the question again rather than showing the answer
  * you left it on. That is watched with an IntersectionObserver rather than a
@@ -27,6 +31,8 @@ const cardsElement = document.getElementById('cards');
 
 /** Must match the .flashcard transition in components.css. */
 const FLIP_MS = 520;
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 let order = [];
 let lastSignature = '';
@@ -78,13 +84,6 @@ function block(label, text) {
   return section;
 }
 
-function mark() {
-  const element = document.createElement('span');
-  element.className = 'flashcard__mark';
-  element.setAttribute('aria-hidden', 'true');
-  return element;
-}
-
 function buildCard(word) {
   const slot = document.createElement('article');
   slot.className = 'card-slot';
@@ -98,7 +97,6 @@ function buildCard(word) {
   // Front: the word, alone.
   const front = document.createElement('div');
   front.className = 'flashcard__face flashcard__face--front';
-  front.appendChild(mark());
 
   const heading = document.createElement('h2');
   heading.className = 'flashcard__word';
@@ -110,7 +108,6 @@ function buildCard(word) {
   // Back: everything else, laid out like the detail card.
   const back = document.createElement('div');
   back.className = 'flashcard__face flashcard__face--back';
-  back.appendChild(mark());
 
   const body = document.createElement('div');
   body.className = 'flashcard__body';
@@ -236,6 +233,93 @@ function turnBack(card) {
   paintSide(card, false);
 }
 
+/**
+ * The card the reader is looking at: the one nearest the middle of the deck.
+ *
+ * Measured on the keypress rather than tracked as the deck scrolls. It costs
+ * one pass over the cards at the moment a key goes down, which is nothing,
+ * and it cannot drift out of step with where the deck actually is.
+ */
+function cardInView() {
+  const cards = cardsElement.querySelectorAll('.flashcard');
+  if (!cards.length) return null;
+
+  const middle = cardsElement.getBoundingClientRect().top + cardsElement.clientHeight / 2;
+  let best = null;
+  let closest = Infinity;
+
+  cards.forEach((card) => {
+    const box = card.getBoundingClientRect();
+    const distance = Math.abs(box.top + box.height / 2 - middle);
+    if (distance < closest) {
+      closest = distance;
+      best = card;
+    }
+  });
+
+  return best;
+}
+
+/** Somewhere text is being entered, where every key means itself. */
+function isTyping(element) {
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+    || element.isContentEditable;
+}
+
+/**
+ * Moves one card up or down the deck.
+ *
+ * Scrolls rather than jumping, and lets the deck's own scroll snapping settle
+ * the landing — so a keypress and a flick end in exactly the same place.
+ */
+function step(delta) {
+  const slots = Array.from(cardsElement.querySelectorAll('.card-slot'));
+  if (!slots.length) return;
+
+  const card = cardInView();
+  const at = card ? slots.indexOf(card.closest('.card-slot')) : 0;
+  const to = Math.max(0, Math.min(slots.length - 1, at + delta));
+  if (to === at) return;
+
+  const slot = slots[to];
+  const top = slot.getBoundingClientRect().top
+    - cardsElement.getBoundingClientRect().top + cardsElement.scrollTop;
+  cardsElement.scrollTo({ top, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+}
+
+/** Enter or Space turns the card on screen; up and down move; see the top. */
+function onKey(event) {
+  if (cardsElement.hidden) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  // A dialog is in front, and its own controls own the keyboard.
+  if (document.querySelector('dialog[open]')) return;
+
+  const active = document.activeElement;
+  if (isTyping(active)) return;
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    step(event.key === 'ArrowDown' ? 1 : -1);
+    return;
+  }
+
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+
+  // Anything focusable already means something by Enter — a link opens, a
+  // button presses. Only take the key when nothing has claimed it.
+  const focused = active && active.closest && active.closest('.flashcard');
+  if (active && !focused && active !== document.body && active.closest('a, button')) {
+    return;
+  }
+
+  const card = focused || cardInView();
+  if (!card) return;
+  event.preventDefault();
+  flip(card);
+}
+
 function watch() {
   const cards = cardsElement.querySelectorAll('.flashcard');
   [watcher, nearby].forEach((observer) => {
@@ -249,9 +333,13 @@ function watch() {
 }
 
 /**
- * How much taller the header is than the tab bar, for centring the card on
- * the whole screen; see .card-slot. Measured rather than assumed, because both
- * change with the safe areas, the folder name and the window size.
+ * How much taller the header is than the tab bar, for centring on the whole
+ * screen rather than on what is left between the two bars. Measured rather
+ * than assumed, because both change with the safe areas, the folder name and
+ * the window size.
+ *
+ * Set on the root so the quiz home can centre the same way; see .card-slot
+ * and .quiz-home.
  */
 function trackChrome() {
   const header = document.querySelector('.app-header');
@@ -260,7 +348,7 @@ function trackChrome() {
 
   const update = () => {
     const diff = Math.max(0, header.offsetHeight - tabbar.offsetHeight);
-    cardsElement.style.setProperty('--chrome-diff', diff + 'px');
+    document.documentElement.style.setProperty('--chrome-diff', diff + 'px');
   };
 
   update();
@@ -303,11 +391,7 @@ export function initCards() {
     if (card) flip(card);
   });
 
-  cardsElement.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    const card = event.target.closest('.flashcard');
-    if (!card || event.target !== card) return;
-    event.preventDefault();
-    flip(card);
-  });
+  // On the document rather than the deck: a card only receives the key when
+  // it has been tabbed to, and on a Mac nothing has been.
+  document.addEventListener('keydown', onKey);
 }
