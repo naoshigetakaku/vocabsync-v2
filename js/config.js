@@ -46,6 +46,27 @@ export const YOUGLISH_LANGUAGE = 'english';
 /** Everything else about a word: definitions, usage, images. */
 export const DUCKDUCKGO_BASE = 'https://duckduckgo.com/?q=';
 
+/**
+ * Pictures are loaded through DuckDuckGo's image proxy rather than from
+ * wherever they were found.
+ *
+ * Three reasons. The addresses point at hundreds of different hosts, and the
+ * content policy can only name a few — through the proxy it names one. Many
+ * of those hosts refuse to serve an image to another site at all. And a
+ * request to the proxy tells the host nothing about who is reading.
+ */
+export const PICTURE_PROXY = 'https://external-content.duckduckgo.com/iu/?u=';
+
+/**
+ * How many cards either side of the one on screen are kept ready.
+ *
+ * 1 means three cards are live at a time: the one being read, the one above
+ * and the one below. Everything else is markup with no picture loaded and no
+ * 3D set up — which is what keeps a folder of four hundred from costing four
+ * hundred photographs' worth of memory.
+ */
+export const CARD_WINDOW = 1;
+
 export const STORAGE_KEYS = {
   credentials: 'vocabsync.credentials.v1',
   words: 'vocabsync.words.v1',
@@ -109,7 +130,7 @@ export const QUIZ_FLUSH_EVERY = 5;
  * predates a feature the app is already using — quiz progress, for instance,
  * gets written nowhere.
  */
-export const REQUIRED_BACKEND_VERSION = 9;
+export const REQUIRED_BACKEND_VERSION = 10;
 
 /**
  * Apps Script is slow to wake and slow to write. A cold start alone can take

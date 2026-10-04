@@ -51,8 +51,9 @@ var PASSPHRASE = 'change-me-to-something-long-and-random';
  *      scheduling columns; updateMany for saving quiz answers in one go
  *   9  archived is a column of its own rather than a status, so a word can be
  *      archived and labelled at the same time; lapses counts missed answers
+ *  10  image and thumb: a picture for the card, found once and remembered
  */
-var BACKEND_VERSION = 9;
+var BACKEND_VERSION = 10;
 
 var SHEET_NAME = 'Words';
 var FOLDER_SHEET_NAME = 'Folders';
@@ -72,8 +73,16 @@ var HEADERS = [
   'id', 'word', 'pos', 'definition', 'note',
   'createdAt', 'updatedAt', 'color', 'folder', 'archivedFrom', 'status',
   'reviews', 'streak', 'labelStreak', 'gap', 'ease', 'dueTick',
-  'archived', 'lapses'
+  'archived', 'lapses', 'image', 'thumb'
 ];
+
+/**
+ * Pictures are stored as the address they were found at, never as bytes: a
+ * spreadsheet cell is the wrong place for a photograph, and the app fetches
+ * them through a proxy anyway. image is the full-size one, thumb the small
+ * one the card blurs for its back.
+ */
+var MAX_URL_LENGTH = 2000;
 
 /** The photo column is kept so existing rows stay aligned; nothing reads it. */
 var FOLDER_HEADERS = ['id', 'name', 'createdAt', 'photo'];
@@ -333,6 +342,8 @@ function rowToWord_(row, map) {
     // A column of its own, so archiving never disturbs the quiz label.
     archived: read('archived') === ARCHIVED_ON ? ARCHIVED_ON : '',
     lapses: toInt_(read('lapses'), 0),
+    image: read('image'),
+    thumb: read('thumb'),
     // Blank on every row written before the quiz existed: a word never asked.
     reviews: toInt_(read('reviews'), 0),
     streak: toInt_(read('streak'), 0),
@@ -375,6 +386,8 @@ function validate_(input) {
   var status = String(input.status || '').trim();
   if (status === 'known') status = '';
   var archived = String(input.archived || '').trim() === ARCHIVED_ON ? ARCHIVED_ON : '';
+  var image = url_(input.image, 'image');
+  var thumb = url_(input.thumb, 'thumb');
 
   if (!word) fail_('BAD_REQUEST', 'Word is required.');
   if (word.length > MAX_WORD_LENGTH) fail_('BAD_REQUEST', 'Word is too long.');
@@ -393,6 +406,7 @@ function validate_(input) {
     word: word, pos: pos, definition: definition, note: note,
     color: color, folder: folder, archivedFrom: archivedFrom, status: status,
     archived: archived,
+    image: image, thumb: thumb,
     lapses: count_(input.lapses, 'lapses'),
     reviews: count_(input.reviews, 'reviews'),
     streak: count_(input.streak, 'streak'),
@@ -401,6 +415,19 @@ function validate_(input) {
     ease: Math.round(ease * 100) / 100,
     dueTick: count_(input.dueTick, 'dueTick')
   };
+}
+
+/**
+ * A picture's address, or blank. Only https is accepted: an http one would be
+ * blocked as mixed content anyway, and a javascript: or data: one has no
+ * business in a column the app turns into a src.
+ */
+function url_(value, name) {
+  var text = String(value === undefined || value === null ? '' : value).trim();
+  if (!text) return '';
+  if (text.length > MAX_URL_LENGTH) fail_('BAD_REQUEST', name + ' is too long.');
+  if (text.indexOf('https://') !== 0) fail_('BAD_REQUEST', name + ' must be an https address.');
+  return text;
 }
 
 /** A non-negative whole number, or 0 when the field was not sent at all. */

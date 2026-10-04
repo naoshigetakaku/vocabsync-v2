@@ -25,8 +25,20 @@
  * Bump CACHE_VERSION on every release.
  */
 
-var CACHE_VERSION = 'v43';
+var CACHE_VERSION = 'v44';
 var CACHE_NAME = 'vocabsync-' + CACHE_VERSION;
+
+/**
+ * Pictures live in a cache of their own, and it is NOT versioned.
+ *
+ * The shell is thrown away and fetched again on every release, which is right
+ * for a dozen small files. Pictures are neither small nor ours: throwing them
+ * away would mean downloading hundreds of photographs again because a
+ * stylesheet changed. They are capped instead, oldest first.
+ */
+var PICTURE_CACHE = 'vocabsync-pictures';
+var PICTURE_HOST = 'external-content.duckduckgo.com';
+var PICTURE_LIMIT = 400;
 
 var SHELL = [
   './',
@@ -49,6 +61,7 @@ var SHELL = [
   './js/form.js',
   './js/install-hint.js',
   './js/links.js',
+  './js/pictures.js',
   './js/list.js',
   './js/picker.js',
   './js/quiz.js',
@@ -95,7 +108,9 @@ self.addEventListener('activate', function (event) {
     caches.keys().then(function (names) {
       return Promise.all(
         names.map(function (name) {
-          return name === CACHE_NAME ? null : caches.delete(name);
+          // The picture cache survives a release; see the note on it above.
+          if (name === CACHE_NAME || name === PICTURE_CACHE) return null;
+          return caches.delete(name);
         })
       );
     }).then(function () {
@@ -106,12 +121,54 @@ self.addEventListener('activate', function (event) {
   );
 });
 
+/**
+ * A picture, from the cache when it is there.
+ *
+ * A failed fetch answers with a failure rather than throwing: the card then
+ * shows no picture, which is exactly what a card without one looks like. It
+ * must never take the page down with it.
+ */
+function picture(request) {
+  return caches.open(PICTURE_CACHE).then(function (cache) {
+    return cache.match(request).then(function (cached) {
+      if (cached) return cached;
+
+      return fetch(request).then(function (response) {
+        if (response && response.ok) {
+          cache.put(request, response.clone()).then(function () {
+            return trimPictures(cache);
+          });
+        }
+        return response;
+      }).catch(function () {
+        return new Response('', { status: 504, statusText: 'Offline' });
+      });
+    });
+  });
+}
+
+/** Oldest first, back down to the cap: keys() answers in insertion order. */
+function trimPictures(cache) {
+  return cache.keys().then(function (keys) {
+    if (keys.length <= PICTURE_LIMIT) return null;
+    var excess = keys.slice(0, keys.length - PICTURE_LIMIT);
+    return Promise.all(excess.map(function (key) { return cache.delete(key); }));
+  });
+}
+
 self.addEventListener('fetch', function (event) {
   var request = event.request;
 
   if (request.method !== 'GET') return;
 
   var url = new URL(request.url);
+
+  // Pictures: cache first, and kept across releases.
+  if (url.hostname === PICTURE_HOST) {
+    event.respondWith(picture(request));
+    return;
+  }
+
   // Apps Script calls must always hit the network, never a cache.
   if (url.origin !== self.location.origin) return;
 

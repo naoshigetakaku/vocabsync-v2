@@ -111,6 +111,8 @@ One row per word, in a tab called `Words`:
 | Q | `dueTick` | The answer count at which it is due again |
 | R | `archived` | `1` for an archived word, else blank |
 | S | `lapses` | Answers missed about this word, ever |
+| T | `image` | Where the card's picture was found |
+| U | `thumb` | The small version of it, for the card's back |
 
 `color` is one of sixteen keys — `default` plus fifteen hues. The key is what
 is stored, never a hex value, so the same word picks the shade pitched for the
@@ -178,6 +180,37 @@ week away leaves no pile of overdue cards, and a long sitting never runs out.
 Answers are applied locally at once and sent to the sheet five at a time
 through `updateMany`, so no card ever waits on the network — and nothing is
 lost if the app is closed mid-session.
+
+**Pictures.** Each word can carry one, found by `apps-script/FindPictures.gs`:
+it searches DuckDuckGo images and takes the first portrait result, because the
+card is portrait and a landscape photograph in it is mostly crop. What goes in
+the sheet is the address, never the picture.
+
+The app loads them through DuckDuckGo's own image proxy rather than from
+wherever they were found. One host to allow in the content policy instead of
+hundreds; hosts that refuse to serve images to other sites work anyway; and
+none of them learn who is reading.
+
+The back of a card takes its colours from the same picture by enlarging it and
+blurring it past recognition. Nothing samples a pixel — the proxy sends no
+CORS header, so a canvas drawn from it could not be read back even if we
+wanted to, and blurring costs less than sampling would. Enough of the card's
+own surface goes back over it that the definition stays readable.
+
+**Three cards at a time.** The one on screen and its two neighbours are the
+only ones that hold a loaded picture or are set up to turn. Everything else is
+markup with neither: the `src` comes off, which is what lets the browser
+release the decoded picture. A folder of four hundred would otherwise mean
+four hundred decoded photographs and eight hundred screen-sized compositing
+layers, and iOS will give you neither — that is the same limit that once
+stopped a large folder's deck opening at all.
+
+Pictures are cached by the service worker in a cache of their own, which is
+**not** versioned: throwing hundreds of photographs away because a stylesheet
+changed would be absurd. It is capped at 400, oldest first.
+
+The quiz has no pictures, deliberately. A photograph on the front of a quiz
+card answers the question.
 
 **The keyboard.** On the cards and in the quiz, Enter or Space turns whichever
 card is on screen and turns it back, without having to Tab to it first — with
@@ -259,6 +292,7 @@ all. Filling it in trades that for one less field during setup.
 | `js/toast.js` | Transient messages. |
 | `js/sort.js` | List ordering: New–Old and Old–New, cycled from the tab. |
 | `js/links.js` | The YouGlish and DuckDuckGo pair, shared by three screens. |
+| `js/pictures.js` | Card pictures: the proxy, and loading three at a time. |
 | `js/view.js` | Open folder, All / Archived tab, and which tab bar section. |
 | `js/list.js` | The word list. |
 | `js/folder-menu.js` | The panel under the header: pick, make, rename, delete. |

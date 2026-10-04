@@ -90,6 +90,11 @@
   --shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.12);
   --shadow-card:    0 10px 32px rgba(0, 0, 0, 0.08);
 
+  /* How much of the card's own surface goes back over the blurred picture on
+     its back. Enough to read the definition through, not so much that the
+     picture's colours disappear. */
+  --card-veil: rgba(255, 255, 255, 0.80);
+
   /* Elevation */
   --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.14);
   --shadow-fab:   0 4px 16px rgba(0, 0, 0, 0.22);
@@ -186,6 +191,10 @@
     --segment-all:    #3D3D3D;
     --shadow-segment: 0 1px 3px rgba(0, 0, 0, 0.4);
     --shadow-card:    0 10px 32px rgba(0, 0, 0, 0.35);
+
+    /* Darker, and a little thinner: a photograph reads through a dark veil
+       more readily than through a pale one. */
+    --card-veil: rgba(32, 32, 32, 0.74);
   }
 }
 

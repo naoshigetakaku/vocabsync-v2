@@ -24,7 +24,7 @@ remove('vocabsync.folders.v1');
 const STORED_FIELDS = [
   'word', 'pos', 'definition', 'note', 'color', 'folder', 'archivedFrom', 'status',
   'reviews', 'streak', 'labelStreak', 'gap', 'ease', 'dueTick',
-  'archived', 'lapses',
+  'archived', 'lapses', 'image', 'thumb',
 ];
 
 /** Must not exceed MAX_BATCH in Code.gs. */

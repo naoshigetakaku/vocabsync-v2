@@ -1,9 +1,11 @@
 /**
  * cards.js — one flash card per screen, in random order.
  *
- * The front carries the word and nothing else; a tap turns the card over to
- * everything else, and another tap turns it back. YouGlish is on both faces,
- * so hearing the word never means giving the answer away.
+ * The front carries the word over its picture; a tap turns the card over to
+ * everything else, and another tap turns it back. The back takes its colours
+ * from the same picture by blurring a copy of it, so the two faces belong to
+ * each other without anything having to read a pixel. YouGlish is on both
+ * faces, so hearing the word never means giving the answer away.
  *
  * The turn is a pure CSS transform between two faces that already exist, so
  * nothing is built, measured or swapped at the moment of the tap. The tap
@@ -20,12 +22,19 @@
  * you left it on. That is watched with an IntersectionObserver rather than a
  * scroll handler: the browser reports the crossings, and a deck of hundreds
  * costs the same as a deck of three.
+ *
+ * Only three cards are ever real at once — the one on screen and its two
+ * neighbours. Those three get their pictures loaded and their 3D set up;
+ * every other card is markup with neither. A deck of four hundred otherwise
+ * means four hundred decoded photographs and eight hundred screen-sized
+ * compositing layers, and iOS will not give you either.
  */
 
 import { visibleWords, paintEmpty } from './list.js';
 import { isArchivedFilter, selectionLabel } from './view.js';
 import { wordLinks } from './links.js';
-import { DEFAULT_COLOR } from './config.js';
+import { picture, hasPicture, showPictures } from './pictures.js';
+import { DEFAULT_COLOR, CARD_WINDOW } from './config.js';
 
 const cardsElement = document.getElementById('cards');
 
@@ -44,11 +53,15 @@ const flipped = new Set();
 let watcher = null;
 
 /**
- * Sets up the 3D turn only on cards on screen or a screen away from it.
- * Each face with a 3D transform is a screen-sized compositing layer, and iOS
- * refuses a few hundred of them — a large folder's deck would not open.
+ * Reports which card is on screen, so the window can follow it. Replaces the
+ * older "anything within a screen's margin" rule, which was fine for the 3D
+ * but far too generous once each card also carried a photograph.
  */
 let nearby = null;
+
+/** The slots, in order, and which of them the reader is on. */
+let slots = [];
+let currentIndex = 0;
 
 function shuffled(items) {
   const copy = items.slice();
@@ -64,6 +77,7 @@ export function shuffleCards() {
   order = shuffled(visibleWords().map((word) => word.id));
   flipped.clear();
   lastSignature = '';
+  currentIndex = 0;
   cardsElement.scrollTop = 0;
 }
 
@@ -94,13 +108,27 @@ function buildCard(word) {
   card.setAttribute('role', 'button');
   card.setAttribute('tabindex', '0');
 
-  // Front: the word, alone.
+  const pictured = hasPicture(word);
+  card.classList.toggle('has-picture', pictured);
+
+  // Front: the word over its picture.
   const front = document.createElement('div');
   front.className = 'flashcard__face flashcard__face--front';
 
+  if (pictured) {
+    front.appendChild(picture(word.image, 'flashcard__photo'));
+    // A wash under the word, so white type survives a pale photograph.
+    const scrim = document.createElement('span');
+    scrim.className = 'flashcard__scrim';
+    scrim.setAttribute('aria-hidden', 'true');
+    front.appendChild(scrim);
+  }
+
   const heading = document.createElement('h2');
   heading.className = 'flashcard__word';
-  heading.dataset.color = word.color || DEFAULT_COLOR;
+  // Over a photograph the word is white; the chosen colour would be a gamble
+  // against whatever is behind it.
+  if (!pictured) heading.dataset.color = word.color || DEFAULT_COLOR;
   heading.textContent = word.word;
   front.appendChild(heading);
   front.appendChild(wordLinks(word));
@@ -108,6 +136,17 @@ function buildCard(word) {
   // Back: everything else, laid out like the detail card.
   const back = document.createElement('div');
   back.className = 'flashcard__face flashcard__face--back';
+
+  if (pictured) {
+    // The same picture, blown up and blurred past recognition: an abstract
+    // ground in exactly the colours of the front. The small thumbnail is used
+    // rather than the full one — enlarging it is half the blur for free.
+    back.appendChild(picture(word.thumb || word.image, 'flashcard__wash'));
+    const veil = document.createElement('span');
+    veil.className = 'flashcard__veil';
+    veil.setAttribute('aria-hidden', 'true');
+    back.appendChild(veil);
+  }
 
   const body = document.createElement('div');
   body.className = 'flashcard__body';
@@ -121,7 +160,7 @@ function buildCard(word) {
 
   const title = document.createElement('h3');
   title.className = 'flashcard__title';
-  title.dataset.color = word.color || DEFAULT_COLOR;
+  if (!pictured) title.dataset.color = word.color || DEFAULT_COLOR;
   title.textContent = word.word;
   body.appendChild(title);
 
@@ -320,16 +359,43 @@ function onKey(event) {
   flip(card);
 }
 
-function watch() {
-  const cards = cardsElement.querySelectorAll('.flashcard');
-  [watcher, nearby].forEach((observer) => {
-    if (!observer) return;
-    observer.disconnect();
-    cards.forEach((card) => observer.observe(card));
+/**
+ * Keeps exactly the card on screen and its two neighbours real.
+ *
+ * "Real" is two things: the 3D set up so the card can turn, and the pictures
+ * loaded. Everything outside the window loses both — the src comes off, which
+ * is what lets the browser release the decoded picture rather than holding
+ * four hundred of them.
+ */
+function applyWindow() {
+  slots.forEach((slot, index) => {
+    const near = Math.abs(index - currentIndex) <= CARD_WINDOW;
+    const card = slot.querySelector('.flashcard');
+    if (card) card.classList.toggle('is-live', near);
+    showPictures(slot, near);
   });
-  // Without IntersectionObserver there is no way to limit it; a small deck
-  // is still fine, and it is the only way the turn works at all.
+}
+
+function watch() {
+  slots = Array.from(cardsElement.querySelectorAll('.card-slot'));
+  currentIndex = Math.min(currentIndex, Math.max(0, slots.length - 1));
+
+  const cards = cardsElement.querySelectorAll('.flashcard');
+  if (watcher) {
+    watcher.disconnect();
+    cards.forEach((card) => watcher.observe(card));
+  }
+  if (nearby) {
+    nearby.disconnect();
+    slots.forEach((slot) => nearby.observe(slot));
+  }
+
+  // Without IntersectionObserver nothing reports which card is on screen, so
+  // the window cannot follow it. Every card is live, as it was before the
+  // window existed; the pictures still only load three at a time, from
+  // wherever the reader happens to be.
   if (!nearby) cards.forEach((card) => card.classList.add('is-live'));
+  applyWindow();
 }
 
 /**
@@ -374,12 +440,20 @@ export function initCards() {
       });
     }, { root: cardsElement, threshold: 0 });
 
-    // A screen's margin either side, so a card is ready before it arrives.
+    // Which card the reader is on. Half of a slot showing is unambiguous:
+    // the deck snaps one card to a screen, so only one can ever pass it.
     nearby = new IntersectionObserver((entries) => {
+      let moved = false;
       entries.forEach((entry) => {
-        entry.target.classList.toggle('is-live', entry.isIntersecting);
+        if (!entry.isIntersecting) return;
+        const index = slots.indexOf(entry.target);
+        if (index !== -1 && index !== currentIndex) {
+          currentIndex = index;
+          moved = true;
+        }
       });
-    }, { root: cardsElement, rootMargin: '100% 0px', threshold: 0 });
+      if (moved) applyWindow();
+    }, { root: cardsElement, threshold: 0.5 });
   }
 
   cardsElement.addEventListener('touchstart', prime, { passive: true });

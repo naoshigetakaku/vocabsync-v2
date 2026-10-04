@@ -839,6 +839,92 @@
   pointer-events: none;
 }
 
+/* --- The picture on a card -------------------------------------------------
+   The front carries the photograph; the back carries the same photograph
+   blown up and blurred past recognition, which is where its colours come
+   from. Nothing reads a pixel: the proxy sends no CORS header, so a canvas
+   drawn from it could not be read back even if we wanted to — and blurring
+   is the cheaper of the two anyway.
+
+   Only three cards hold a loaded picture at a time; see js/cards.js. */
+
+.flashcard__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The face is already clipped, but Safari will paint a square corner
+     through a 3D transform without this. */
+  border-radius: inherit;
+}
+
+/* A wash under the word, so white type survives a pale photograph. */
+.flashcard__scrim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0) 32%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0) 46%);
+}
+
+/* The picture and its wash sit under everything else. Stated rather than
+   left to document order: the word is positioned too, and without this the
+   two would be settled by which came first in the markup. */
+.flashcard__photo,
+.flashcard__scrim { z-index: 0; }
+
+/* Everything the reader is meant to read sits over both.
+   The word keeps the absolute centring it has without a picture — giving it
+   position: relative here would hand it back to the flow and drop it to the
+   top of the card. */
+.flashcard.has-picture .flashcard__word {
+  z-index: 1;
+  color: #ffffff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+}
+
+.flashcard.has-picture .flashcard__face--front .wordlinks {
+  position: relative;
+  z-index: 1;
+}
+
+.flashcard.has-picture .flashcard__face--front .youglish {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* The back: the same picture, enlarged and blurred. The thumbnail is used
+   rather than the full one — enlarging a small image is half the blur for
+   free, and costs a fraction of the memory. */
+.flashcard__wash {
+  position: absolute;
+  top: -25%;
+  left: -25%;
+  width: 150%;
+  height: 150%;
+  object-fit: cover;
+  filter: blur(26px) saturate(1.7);
+  /* The blur reaches past the edge; the face clips it back. */
+  transform: translateZ(0);
+}
+
+/* Enough of the surface back over it that the text keeps its ordinary
+   colour. The hues still come through — that is the point — but a card you
+   cannot read is not a card. */
+.flashcard__veil {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--card-veil);
+}
+
+.flashcard.has-picture .flashcard__body,
+.flashcard.has-picture .flashcard__face--back .wordlinks {
+  position: relative;
+  z-index: 1;
+}
+
 .flashcard__body {
   flex: 1 1 auto;
   min-height: 0;
