@@ -191,9 +191,23 @@ When it cannot find a picture it says which kind of failure it was: a word
 whose results are all landscape is a different problem from a run that never
 reached the search at all, and they used to look identical in the log. Five
 lookups in a row that never reached the search stop the run, because the
-hundred after them will not reach it either. Apps Script fetches from Google's
-network and DuckDuckGo turns much of it away, so that outcome is a real
-possibility rather than a hypothetical one.
+hundred after them will not reach it either.
+
+**In practice that is what happens.** Apps Script fetches from Google's
+network, DuckDuckGo turns that network away, and `findPictures()` gets a
+mixture of connections that never open and pages with no search token in them.
+The same searches answer immediately from an ordinary machine, so the lookup
+is done there instead:
+
+    1. logWordsForPictures()          in Apps Script — copy the array it logs
+    2. python3 tools/find-pictures.py words.json
+    3. paste the PictureData.gs it writes into the Apps Script project
+    4. applyPictures()                writes them in, fetching nothing
+
+The collector keeps a cache and skips anything already in it, so a run that is
+interrupted or rate-limited part way can simply be run again. `findPictures()`
+is kept for the day DuckDuckGo changes its mind, and because it is the same
+code either way — only where it runs differs.
 
 The app loads them through DuckDuckGo's own image proxy rather than from
 wherever they were found. One host to allow in the content policy instead of

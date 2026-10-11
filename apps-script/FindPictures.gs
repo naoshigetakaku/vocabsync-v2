@@ -217,7 +217,12 @@ function previewPictures() {
     Logger.log('Every lookup failed before it searched anything. Apps Script runs');
     Logger.log('from Google\'s network and DuckDuckGo turns much of it away, so this');
     Logger.log('is what being blocked looks like rather than a fault in the words.');
-    Logger.log('The pictures will have to be collected somewhere else; see README.');
+    Logger.log('');
+    Logger.log('Collect them on your own machine instead:');
+    Logger.log('  1. run logWordsForPictures() and copy the array out of the log');
+    Logger.log('  2. python3 tools/find-pictures.py words.json');
+    Logger.log('  3. paste the PictureData.gs it writes into this project');
+    Logger.log('  4. run applyPictures()');
     return;
   }
 
@@ -266,6 +271,7 @@ function findPictures() {
           blockedRun);
         Logger.log('Apps Script runs from Google\'s network and DuckDuckGo turns much');
         Logger.log('of it away; this is what that looks like, not a fault in the words.');
+        Logger.log('Run logWordsForPictures() and collect them with tools/find-pictures.py.');
         break;
       }
     }
@@ -301,6 +307,109 @@ function findPictures() {
     Logger.log('Wrote %s picture(s). %s had none to find.', found.length, missed);
     Logger.log('%s word(s) still to go — run findPictures() again for the next batch.',
       plan.rows.length - batch.length);
+    return null;
+  });
+}
+
+/**
+ * Prints the words that still need a picture, as JSON.
+ *
+ * This exists because DuckDuckGo will not answer Apps Script: the search runs
+ * from Google's network, and that network is turned away. The lookup has to
+ * happen somewhere else, so this hands over the only thing the somewhere else
+ * needs — the list of words.
+ *
+ * Copy the array out of the log, run tools/find-pictures.py over it, and the
+ * result comes back as PictureData.gs for applyPictures() to write in. No
+ * fetching from here at any point.
+ */
+function logWordsForPictures() {
+  var plan = picturelessRows_();
+  if (!plan.rows.length) {
+    Logger.log('Every word already has a picture.');
+    return;
+  }
+
+  var words = [];
+  for (var i = 0; i < plan.rows.length; i++) words.push(plan.rows[i].word.word);
+
+  Logger.log('%s word(s) need a picture. Copy the array below.', words.length);
+  Logger.log('');
+
+  // Split across lines: the log truncates a single very long one.
+  var CHUNK = 40;
+  Logger.log('[');
+  for (var c = 0; c < words.length; c += CHUNK) {
+    var slice = words.slice(c, c + CHUNK).map(function (w) { return JSON.stringify(w); });
+    Logger.log('  ' + slice.join(', ') + (c + CHUNK < words.length ? ',' : ''));
+  }
+  Logger.log(']');
+}
+
+/**
+ * Writes the pictures collected elsewhere into the sheet.
+ *
+ * Reads the PICTURES map out of PictureData.gs — a file this project does not
+ * ship, because it is generated. Matching is by word, lower-cased: the same
+ * word in two folders gets the same picture, which is what you would want.
+ *
+ * Nothing here touches the network, so none of DuckDuckGo's opinions about
+ * Google's address range apply.
+ */
+function applyPictures() {
+  if (typeof PICTURES === 'undefined') {
+    Logger.log('No PICTURES map. Add the generated PictureData.gs to this project first.');
+    return;
+  }
+
+  var lookup = {};
+  var offered = 0;
+  for (var key in PICTURES) {
+    if (!Object.prototype.hasOwnProperty.call(PICTURES, key)) continue;
+    lookup[key.trim().toLowerCase()] = PICTURES[key];
+    offered += 1;
+  }
+
+  withLock_(function () {
+    var sheet = getSheet_();
+    var schema = ensureHeaders_(sheet);
+    var map = schema.map;
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      Logger.log('No words.');
+      return null;
+    }
+
+    var range = sheet.getRange(2, 1, lastRow - 1, schema.width);
+    var values = range.getValues();
+    var now = new Date().toISOString();
+    var written = 0;
+    var skipped = 0;
+
+    for (var i = 0; i < values.length; i++) {
+      if (!values[i][map.id]) continue;
+      var word = rowToWord_(values[i], map);
+      if (word.image) { skipped += 1; continue; }
+
+      var hit = lookup[String(word.word || '').trim().toLowerCase()];
+      if (!hit || !hit.image) continue;
+
+      values[i][map.image] = escapeCell_(hit.image);
+      values[i][map.thumb] = escapeCell_(hit.thumb || '');
+      if (map.updatedAt !== undefined) values[i][map.updatedAt] = escapeCell_(now);
+      written += 1;
+    }
+
+    if (!written) {
+      Logger.log('%s picture(s) offered, none matched a word without one.', offered);
+      return null;
+    }
+
+    range.setValues(protectFormulas_(values));
+    Logger.log('Wrote %s picture(s) from a map of %s.', written, offered);
+    Logger.log('%s word(s) already had one and were left alone.', skipped);
+    Logger.log('Done. The app picks these up on its next sync.');
     return null;
   });
 }
