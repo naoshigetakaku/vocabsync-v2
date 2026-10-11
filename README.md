@@ -184,7 +184,16 @@ lost if the app is closed mid-session.
 **Pictures.** Each word can carry one, found by `apps-script/FindPictures.gs`:
 it searches DuckDuckGo images and takes the first portrait result, because the
 card is portrait and a landscape photograph in it is mostly crop. What goes in
-the sheet is the address, never the picture.
+the sheet is the address, never the picture. Archived words are skipped — they
+are on no card, so a lookup spent on one is a lookup wasted.
+
+When it cannot find a picture it says which kind of failure it was: a word
+whose results are all landscape is a different problem from a run that never
+reached the search at all, and they used to look identical in the log. Five
+lookups in a row that never reached the search stop the run, because the
+hundred after them will not reach it either. Apps Script fetches from Google's
+network and DuckDuckGo turns much of it away, so that outcome is a real
+possibility rather than a hypothetical one.
 
 The app loads them through DuckDuckGo's own image proxy rather than from
 wherever they were found. One host to allow in the content policy instead of
